@@ -1,0 +1,4 @@
+# Ignore environment variables file
+/backend/.env
+/backend/config/firebaseServiceAccount.json
+/backend/node_modules
