@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth } from '../firebase';
-import axios from 'axios';
+import { auth } from '../firebase.js';
+import api from '../services/api';
 
 const AuthContext = createContext();
 
@@ -12,18 +12,18 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [firebaseUser, setFirebaseUser] = useState(null); // firebase auth object
 
+ 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      console.log('Firebase User:', fbUser);
       setFirebaseUser(fbUser);
       if (fbUser) {
-        const token = await fbUser.getIdToken();
-        // Sync with backend
         try {
-          const res = await axios.post(
-            'http://localhost:5000/api/auth/sync',
+          const token = await fbUser.getIdToken();
+          const res = await api.post('/auth/sync', 
             {
               name: fbUser.displayName || 'Unnamed',
-              role: 'MEMBER', // you can adjust logic later
+              role: 'MEMBER',
               teamId: null,
             },
             {
@@ -32,9 +32,18 @@ export const AuthProvider = ({ children }) => {
               },
             }
           );
+          console.log('Backend sync successful:', res.data);
           setUser(res.data);
         } catch (err) {
-          console.error('Backend sync error', err);
+          console.error('Backend sync error:', {
+            message: err.message,
+            response: err.response?.data,
+            status: err.response?.status
+          });
+          // Don't reset user on network errors
+          if (err.code !== 'ERR_NETWORK') {
+            setUser(null);
+          }
         }
       } else {
         setUser(null);
@@ -44,7 +53,7 @@ export const AuthProvider = ({ children }) => {
 
     return () => unsubscribe();
   }, []);
-
+  
   const login = (email, password) =>
     signInWithEmailAndPassword(auth, email, password);
 

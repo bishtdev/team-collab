@@ -8,6 +8,7 @@ const authRoutes = require('./routes/auth');
 const projectRoutes = require('./routes/projectRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const messageRoutes = require('./routes/messageRoutes')
+const teamRoutes = require('./routes/teamRoutes');
 const http = require('http');
 const socketIO = require('socket.io');
 const Message = require('./models/Message'); 
@@ -15,11 +16,16 @@ const Message = require('./models/Message');
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173', 
+  credentials: true
+}));
 app.use(express.json());
 
 // Firebase Admin Init
 const serviceAccount = require('./config/firebaseServiceAccount.json');
+const verifyFirebaseToken = require('./middlewares/verifyFirebaseToken');
+const authenticate = require('./middlewares/auth');
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
@@ -38,7 +44,7 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 
 //project route
-app.use('/api/projects', projectRoutes);
+app.use('/api/projects', verifyFirebaseToken, authenticate, projectRoutes);
 
 //task route
 app.use('/api/tasks', taskRoutes);
@@ -46,13 +52,16 @@ app.use('/api/tasks', taskRoutes);
 // message route
 app.use('/api/messages', messageRoutes)
 
+//team route
+app.use('/api/teams', teamRoutes);
 
 
 
-// const PORT = process.env.PORT || 5000;
-// app.listen(PORT, () => {
-//   console.log(`Server running on port ${PORT}`);
-// });
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 const server = http.createServer(app); // Instead of app.listen()
 const io = socketIO(server, {
   cors: {

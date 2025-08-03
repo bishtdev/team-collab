@@ -6,6 +6,20 @@ import Projects from './pages/Projects';
 import KanbanBoard from './components/KanbanBoard';
 import Chat from './components/Chat';
 import ProtectedRoute from './components/ProtectedRoute';
+import { useParams } from 'react-router-dom';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import TeamSetup from './pages/TeamSetup';
+
+const KanbanBoardWrapper = () => {
+  const { id } = useParams(); // project id
+  return (
+    <div>
+      <ProjectHeader projectId={id} /> {/* fetch & show name/desc */}
+      <KanbanBoard projectId={id} />
+    </div>
+  );
+};
 
 function App() {
   return (
@@ -15,6 +29,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path='/setup-team' element={<ProtectedRoute><TeamSetup/></ProtectedRoute>} />
             <Route
               path="/projects"
               element={
@@ -48,13 +63,8 @@ function App() {
 }
 
 // wrappers to get params (simplified)
-import { useParams } from 'react-router-dom';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-const KanbanBoardWrapper = () => {
-  const { id } = useParams();
-  return <KanbanBoard projectId={id} />;
-};
+
+
 const ChatWrapper = () => {
   const { user } = useAuth();
   return <Chat teamId={user?.teamId} />;
