@@ -8,8 +8,11 @@ const verifyFirebaseToken = async (req, res, next) => {
   try {
     const decoded = await admin.auth().verifyIdToken(token);
     req.firebaseUser = decoded; // contains email, uid, etc.
+    console.log('Authorization header received:', req.headers.authorization);
+
     next();
   } catch (err) {
+    console.log('Token verify failed:', err.message);
     return res.status(401).json({ error: 'Invalid token', details: err.message });
   }
 };

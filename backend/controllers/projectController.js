@@ -14,6 +14,10 @@ exports.getProjects = async (req, res) => {
 exports.createProject = async (req, res) => {
   try {
     const { name, description } = req.body;
+     if (!req.user.teamId) {
+      console.log('CreateProject failed: user has no teamId', req.user);
+      return res.status(400).json({ error: 'User is not assigned to any team' });
+    }
     const newProject = await Project.create({
       name,
       description,

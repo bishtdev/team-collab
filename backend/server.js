@@ -47,13 +47,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/projects', verifyFirebaseToken, authenticate, projectRoutes);
 
 //task route
-app.use('/api/tasks', taskRoutes);
+app.use('/api/tasks',verifyFirebaseToken, authenticate, taskRoutes);
 
 // message route
-app.use('/api/messages', messageRoutes)
+app.use('/api/messages',verifyFirebaseToken, authenticate, messageRoutes)
 
 //team route
-app.use('/api/teams', teamRoutes);
+app.use('/api/teams',verifyFirebaseToken, authenticate, teamRoutes);
 
 
 

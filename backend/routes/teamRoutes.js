@@ -14,4 +14,8 @@ router.post('/', validate(createTeamSchema), controller.createTeam);
 // Get my team
 router.get('/me', controller.getMyTeam);
 
+router.get('/', controller.listMyTeams);
+// Set active team
+router.patch('/select', controller.setActiveTeam);
+
 module.exports = router;

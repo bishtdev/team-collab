@@ -4,29 +4,43 @@ const router = express.Router();
 const verifyFirebaseToken = require('../middlewares/verifyFirebaseToken');
 const User = require('../models/User');
 
+const VALID_ROLES = ['ADMIN', 'MANAGER', 'MEMBER'];
+
 router.post('/sync', verifyFirebaseToken, async (req, res) => {
   try {
-    const { name, role, teamId } = req.body;
-    const email = req.firebaseUser.email;
+    let { name, role, teamId } = req.body;
+    const { email, name: firebaseName } = req.firebaseUser;
+
+    // Normalize role if provided; otherwise leave undefined
+    if (role && typeof role === 'string') {
+      role = role.toUpperCase();
+      if (!VALID_ROLES.includes(role)) {
+        role = 'MEMBER';
+      }
+    } else {
+      role = undefined; // do not default here for existing users
+    }
 
     let user = await User.findOne({ email });
 
     if (!user) {
-      user = await User.create({
-        name,
+      // On creation, apply defaults
+      await User.create({
+        name: name || firebaseName || 'Unnamed',
         email,
         role: role || 'MEMBER',
         teamId: teamId || null,
+      }).then((created) => {
+        return res.status(201).json(created);
       });
     } else {
-      // Optionally: update name/role/teamId if provided
+      // Update only if provided
       if (name) user.name = name;
-      if (role) user.role = role;
-      if (teamId !== undefined) user.teamId = teamId;
+      if (role) user.role = role; // preserves existing role if none sent
+      if (teamId !== undefined && teamId !== null) user.teamId = teamId;
       await user.save();
+      res.status(200).json(user);
     }
-
-    res.status(200).json(user);
   } catch (err) {
     res.status(500).json({ error: 'User sync failed', details: err.message });
   }

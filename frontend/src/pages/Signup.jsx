@@ -1,43 +1,22 @@
 import React, { useState } from 'react';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth } from '../firebase';
-import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Signup = () => {
+  const { signup } = useAuth();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('MEMBER'); // default role
+  const [role, setRole] = useState('MEMBER');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const navigate = useNavigate();
 
   const handleSignup = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const fbUser = userCredential.user;
-      await updateProfile(fbUser, { displayName: name });
-
-      const token = await fbUser.getIdToken();
-
-      // Sync with backend
-      const res = await axios.post(
-        'http://localhost:5000/api/auth/sync',
-        {
-          name,
-          role,
-          teamId: null, // can be assigned later
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      setSuccess('Account created and synced');
+      await signup(name, email, password, role);
+      navigate('/projects');
     } catch (err) {
       setError(err.message || 'Signup failed');
     }
@@ -47,7 +26,6 @@ const Signup = () => {
     <div className="max-w-md mx-auto mt-20 p-6 bg-white dark:bg-gray-800 rounded shadow">
       <h2 className="text-2xl font-bold mb-4">Sign Up</h2>
       {error && <div className="text-red-500 mb-2">{error}</div>}
-      {success && <div className="text-green-500 mb-2">{success}</div>}
       <form onSubmit={handleSignup} className="space-y-4">
         <div>
           <label className="block text-sm">Name</label>
@@ -109,4 +87,4 @@ const Signup = () => {
   );
 };
 
-export default Signup;
+export default Signup
