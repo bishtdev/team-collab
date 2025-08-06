@@ -10,6 +10,7 @@ import { useParams } from 'react-router-dom';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import TeamSetup from './pages/TeamSetup';
+import ProjectKanban from './pages/ProjectKanban';
 
 const KanbanBoardWrapper = () => {
   const { id } = useParams(); // project id
@@ -42,8 +43,7 @@ function App() {
               path="/project/:id/kanban"
               element={
                 <ProtectedRoute>
-                  {/* extract projectId from params and pass to KanbanBoard */}
-                  <KanbanBoardWrapper />
+                  <ProjectKanban />
                 </ProtectedRoute>
               }
             />

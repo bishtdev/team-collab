@@ -3,16 +3,21 @@ import { auth } from '../firebase';
 
 const api = axios.create({
   baseURL: 'http://localhost:5000/api',
+  withCredentials: true
 });
 
-// attach Firebase token automatically
 api.interceptors.request.use(async (config) => {
-  const currentUser = auth.currentUser;
-  if (currentUser) {
-    const token = await currentUser.getIdToken();
-    config.headers.Authorization = `Bearer ${token}`;
+  try {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      const token = await currentUser.getIdToken();
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  } catch (error) {
+    console.error('API interceptor error:', error);
+    return Promise.reject(error);
   }
-  return config;
 });
 
 export default api;

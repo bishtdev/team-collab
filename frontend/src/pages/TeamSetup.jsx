@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { FiUsers, FiPlus, FiArrowRight, FiBriefcase } from 'react-icons/fi';
 
@@ -15,6 +15,7 @@ const TeamSetup = () => {
   const [activeTeam, setActiveTeam] = useState(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const location = useLocation()
 
   const loadTeams = async () => {
     setIsLoading(true);
@@ -73,6 +74,10 @@ const TeamSetup = () => {
       setError(err.response?.data?.error || 'Failed to set active team');
     }
   };
+
+   useEffect(() => {
+    if (user) loadTeams();
+  }, [user, location.pathname]);
 
   if (!user) {
     return (

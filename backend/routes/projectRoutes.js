@@ -5,6 +5,7 @@ const checkRole = require('../middlewares/role');
 const { createProjectSchema } = require('../validators/projectValidator');
 const validate = require('../middlewares/validate'); // We'll create this
 const controller = require('../controllers/projectController');
+const Project = require('../models/Project');
 
 // Middleware to validate body
 // (create `middlewares/validate.js`)
@@ -12,6 +13,19 @@ router.use(auth);
 
 // Get all projects
 router.get('/', controller.getProjects);
+
+router.get('/:id', async (req, res) => {
+  try {
+    const project = await Project.findOne({
+      _id: req.params.id,
+      teamId: req.user.teamId
+    });
+    if (!project) return res.status(404).json({ error: 'Not found' });
+    res.json(project);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch project' });
+  }
+});
 
 // Create a project (Admin/Manager)
 router.post(

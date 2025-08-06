@@ -13,7 +13,7 @@ exports.getTasks = async (req, res) => {
   }
 };
 
-// Create a task
+// Create a tasks
 exports.createTask = async (req, res) => {
   try {
     const { title, description, status, projectId, assignedTo } = req.body;
