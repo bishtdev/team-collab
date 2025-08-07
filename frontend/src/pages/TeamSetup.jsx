@@ -68,7 +68,9 @@ const TeamSetup = () => {
     try {
       await api.patch('/teams/select', { teamId });
       await loadTeams();
+      
       navigate('/projects');
+      window.location.reload();
     } catch (err) {
       console.error('Set active team failed', err);
       setError(err.response?.data?.error || 'Failed to set active team');
