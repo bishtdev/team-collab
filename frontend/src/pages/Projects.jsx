@@ -38,11 +38,26 @@ const Projects = () => {
 
   // New: load team members (for dropdown)
   const loadTeamMembers = async () => {
+    console.log('🔍 Loading team members...');
+    console.log('👤 Current user:', user);
+    console.log('🏢 User teamId:', user?.teamId);
+    
     try {
+      console.log('📡 Making API call to /users/team');
       const res = await api.get('/users/team');
+      console.log('✅ API Response:', res);
+      console.log('📊 Response data:', res.data);
+      console.log('👥 Members array:', res.data.members);
+      
       setTeamMembers(res.data.members || []);
+      console.log('💾 Team members set to state:', res.data.members || []);
     } catch (err) {
-      console.error('Failed to load team members', err);
+      console.error('❌ Failed to load team members', err);
+      console.error('📋 Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
       setTeamMembers([]);
     }
   };
