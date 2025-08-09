@@ -1,11 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import io from 'socket.io-client';
+import socket from '../services/socket';
 import api from '../services/api'; // Use your api service instead of axios
 
-const socket = io('http://localhost:5000', {
-  withCredentials: true,
-  transports:['websocket', 'polling']
-});
+
 
 const ChatPage = ({ teamId, currentUser }) => {
   const [message, setMessage] = useState('');
