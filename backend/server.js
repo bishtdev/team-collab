@@ -21,7 +21,7 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://your-frontend-domain.vercel.app', // Replace with your actual frontend URL
+  'https://team-collab-devbisht.vercel.app', // Replace with your actual frontend URL
   process.env.FRONTEND_URL // Environment variable for frontend URL
 ].filter(Boolean);
 
