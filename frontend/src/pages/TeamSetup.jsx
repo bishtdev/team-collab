@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { auth } from '../firebase';
+import { auth } from '../firebaseConfig';
 import { FiUsers, FiPlus, FiArrowRight, FiBriefcase, FiUserPlus, FiX } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

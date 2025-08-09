@@ -6,7 +6,7 @@ import {
   updateProfile, 
   signOut 
 } from 'firebase/auth';
-import { auth } from '../firebase.js';
+import { auth } from '../firebaseConfig.js';
 import api from '../services/api';
 
 const AuthContext = createContext();
