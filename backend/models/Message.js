@@ -5,21 +5,22 @@ const messageSchema = new mongoose.Schema({
   content: {
     type: String,
     required: true,
+    trim: true
   },
   senderId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: true
   },
   teamId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Team',
-    required: true,
+    required: true
   },
   timestamp: {
     type: Date,
-    default: Date.now,
-  },
+    default: Date.now
+  }
 });
 
 module.exports = mongoose.model('Message', messageSchema);

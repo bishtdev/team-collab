@@ -19,7 +19,8 @@ const app = express();
 app.use(cors({
   origin: 'http://localhost:5173',
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders:['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 
@@ -56,6 +57,8 @@ app.use('/api/messages',verifyFirebaseToken, authenticate, messageRoutes)
 //team route
 app.use('/api/teams',verifyFirebaseToken, authenticate, teamRoutes);
 
+app.use('/api/users', verifyFirebaseToken, authenticate, teamRoutes);
+
 
 
 
@@ -64,8 +67,9 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app); // Create server
 const io = socketIO(server, {
   cors: {
-    origin: '*', // Restrict in production
+    origin: 'http://localhost:5173', // Match frontend URL exactly
     methods: ['GET', 'POST'],
+    credentials: true // Add this
   },
 });
 
@@ -77,21 +81,29 @@ io.on('connection', (socket) => {
   console.log('⚡ A user connected:', socket.id);
 
   // Join team room
-  socket.on('joinRoom', ({ teamId }) => {
-    socket.join(teamId);
-    console.log(`User ${socket.id} joined team: ${teamId}`);
-  });
+  socket.on('joinTeamRoom', (teamId) => { // Match the frontend event name
+  socket.join(teamId);
+  console.log(`User ${socket.id} joined team: ${teamId}`);
+});
 
   // Receive and broadcast new message
-  socket.on('sendMessage', async ({ teamId, senderId, text }) => {
-    const message = await Message.create({ teamId, sender: senderId, text });
-    io.to(teamId).emit('newMessage', {
-      _id: message._id,
-      teamId,
-      sender: senderId,
-      text,
-      sentAt: message.sentAt,
-    });
+  socket.on('sendMessage', async ({ teamId, senderId, content }) => {
+    try {
+      const message = await Message.create({ 
+        teamId, 
+        senderId, 
+        content // Match the Message model schema
+      });
+      io.to(teamId).emit('receiveMessage', {
+        _id: message._id,
+        teamId,
+        content: message.content,
+        senderId: message.senderId,
+        timestamp: message.timestamp,
+      });
+    } catch (err) {
+      console.error('Error creating message:', err);
+    }
   });
 
   socket.on('disconnect', () => {

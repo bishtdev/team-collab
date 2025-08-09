@@ -17,6 +17,7 @@ exports.createTeam = async (req, res) => {
       name,
       description,
       adminId: req.user._id,
+      members: [req.user._id] // Include admin in members array
     });
 
     // If user has no active team yet, set this as their current team
@@ -49,7 +50,7 @@ exports.getMyTeam = async (req, res) => {
 exports.listMyTeams = async (req, res) => {
   try {
     // Admin: teams where they are admin
-    const owned = await Team.find({ adminId: req.user._id });
+    const owned = await Team.find({ adminId: req.user._id }).populate('members', 'name email role');
     // (Optional) If you implement managers separately, include those too
     res.json({ teams: owned });
   } catch (err) {
@@ -76,4 +77,106 @@ exports.setActiveTeam = async (req, res) => {
     res.status(500).json({ error: 'Failed to set active team' });
   }
 };
+
+
+exports.addUserToTeam = async (req, res) => {
+  try {
+    const { email, name, userId } = req.body;
+    const { teamId } = req.params;
+
+    const team = await Team.findById(teamId);
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+
+    let user;
+    
+    if (userId) {
+      // Adding existing user by ID
+      user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+    } else if (email) {
+      // Check if user exists by email
+      user = await User.findOne({ email });
+      
+      if (!user) {
+        // Create new user if they don't exist
+        user = await User.create({
+          email,
+          name,
+          role: 'MEMBER',
+          teamId: teamId
+        });
+      }
+    } else {
+      return res.status(400).json({ error: 'Either userId or email is required' });
+    }
+
+    // Check if user is already in the team
+    if (team.members && team.members.includes(user._id)) {
+      return res.status(400).json({ error: 'User is already a member of this team' });
+    }
+    
+    // Update user's teamId if not already set
+    if (!user.teamId) {
+      user.teamId = teamId;
+      await user.save();
+    }
+
+    // Add user to team members if not already there
+    if (!team.members) {
+      team.members = [];
+    }
+    
+    if (!team.members.includes(user._id)) {
+      team.members.push(user._id);
+      await team.save();
+    }
+
+    res.status(200).json({ message: 'User added to team', user });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to assign user to team', details: err.message });
+  }
+};
+
+exports.getTeamMembers = async (req, res) => {
+  try {
+    const { teamId } = req.params;
+
+    const team = await Team.findById(teamId).populate('members', 'name email role');
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+
+    // Get admin user as well
+    const admin = await User.findById(team.adminId).select('name email role');
+    
+    // Combine admin and members, avoiding duplicates
+    let allMembers = [];
+    if (admin) {
+      allMembers.push(admin);
+    }
+    
+    if (team.members && team.members.length > 0) {
+      // Filter out admin if they're already in members array
+      const membersWithoutAdmin = team.members.filter(member => 
+        !admin || member._id.toString() !== admin._id.toString()
+      );
+      allMembers = [...allMembers, ...membersWithoutAdmin];
+    }
+    
+    res.json(allMembers);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get team members' });
+  }
+};
+
+// Get all users in the database
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({}).select('name email role _id teamId');
+    res.json({ users });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get users' });
+  }
+};
+
 

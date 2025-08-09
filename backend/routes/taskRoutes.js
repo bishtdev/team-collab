@@ -11,6 +11,8 @@ router.use(auth);
 // GET tasks for a project
 router.get('/', controller.getTasks);
 
+router.get('/assigned', auth, controller.getMyTasks); 
+
 // Create task (Admin/Manager)
 router.post('/', checkRole(['ADMIN', 'MANAGER']), validate(createTaskSchema), controller.createTask);
 

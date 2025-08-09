@@ -23,67 +23,73 @@ const Signup = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-20 p-6 bg-white dark:bg-gray-800 rounded shadow">
-      <h2 className="text-2xl font-bold mb-4">Sign Up</h2>
-      {error && <div className="text-red-500 mb-2">{error}</div>}
-      <form onSubmit={handleSignup} className="space-y-4">
-        <div>
-          <label className="block text-sm">Name</label>
-          <input
-            type="text"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full border px-3 py-2 rounded"
-          />
-        </div>
-        <div>
-          <label className="block text-sm">Email</label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full border px-3 py-2 rounded"
-          />
-        </div>
-        <div>
-          <label className="block text-sm">Password</label>
-          <input
-            type="password"
-            required
-            minLength={6}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full border px-3 py-2 rounded"
-          />
-        </div>
-        <div>
-          <label className="block text-sm">Role</label>
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="w-full border px-3 py-2 rounded"
-          >
-            <option value="MEMBER">Member</option>
-            <option value="MANAGER">Manager</option>
-            <option value="ADMIN">Admin</option>
-          </select>
-        </div>
-        <button
-          type="submit"
-          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
-        >
-          Sign Up
-        </button>
-      </form>
-      <div className="mt-4 text-sm">
-        Already have an account?{' '}
-        <a href="/login" className="text-blue-500 underline">
-          Login
-        </a>
-      </div>
+    <div className="max-w-md mx-auto mt-2 p-8 bg-gray-900 border border-gray-800 rounded-lg">
+  <h2 className="text-2xl font-bold text-white mb-6">Sign Up</h2>
+  {error && <div className="text-red-400 mb-4 p-3 bg-gray-800 rounded-lg text-sm">{error}</div>}
+  
+  <form onSubmit={handleSignup} className="space-y-5">
+    <div>
+      <label className="block text-sm font-medium text-gray-300 mb-2">Name</label>
+      <input
+        type="text"
+        required
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="w-full px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-gray-600 focus:border-gray-600"
+      />
     </div>
+    
+    <div>
+      <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
+      <input
+        type="email"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="w-full px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-gray-600 focus:border-gray-600"
+      />
+    </div>
+    
+    <div>
+      <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
+      <input
+        type="password"
+        required
+        minLength={6}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        className="w-full px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-gray-600 focus:border-gray-600"
+      />
+    </div>
+    
+    <div>
+      <label className="block text-sm font-medium text-gray-300 mb-2">Role</label>
+      <select
+        value={role}
+        onChange={(e) => setRole(e.target.value)}
+        className="w-full px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-gray-600 focus:border-gray-600"
+      >
+        <option value="MEMBER">Member</option>
+        <option value="MANAGER">Manager</option>
+        <option value="ADMIN">Admin</option>
+      </select>
+    </div>
+    
+    <button
+      type="submit"
+      className="w-full px-4 py-3 bg-white text-gray-900 font-medium rounded-lg hover:bg-gray-200 transition-colors"
+    >
+      Sign Up
+    </button>
+  </form>
+  
+  <div className="mt-6 text-center text-sm text-gray-400">
+    Already have an account?{' '}
+    <a href="/login" className="text-blue-400 hover:text-blue-300 underline">
+      Login
+    </a>
+  </div>
+</div>
   );
 };
 

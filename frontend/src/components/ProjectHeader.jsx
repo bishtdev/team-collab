@@ -24,14 +24,14 @@ const ProjectHeader = ({ projectId }) => {
   if (!project) return null;
 
   return (
-    <div className="flex justify-between items-center mb-4 p-4 bg-white dark:bg-gray-800 rounded shadow">
-      <div>
-        <h2 className="text-2xl font-bold">{project.name}</h2>
-        {project.description && (
-          <p className="text-sm text-gray-600 dark:text-gray-300">{project.description}</p>
-        )}
-      </div>
+    <div className="flex justify-between items-center mb-4 p-4 bg-gray-900 border-b border-gray-800">
+    <div>
+      <h2 className="text-2xl font-bold text-white">{project.name}</h2>
+      {project.description && (
+        <p className="text-sm text-gray-400">{project.description}</p>
+      )}
     </div>
+  </div>
   );
 };
 

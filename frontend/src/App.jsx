@@ -1,16 +1,17 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Projects from './pages/Projects';
 import KanbanBoard from './components/KanbanBoard';
-import Chat from './components/Chat';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useParams } from 'react-router-dom';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import TeamSetup from './pages/TeamSetup';
 import ProjectKanban from './pages/ProjectKanban';
+import ChatPage from './components/ChatPage';
+import { Toaster } from '@/components/ui/sonner';
 
 const KanbanBoardWrapper = () => {
   const { id } = useParams(); // project id
@@ -57,6 +58,7 @@ function App() {
             />
           </Routes>
         </Layout>
+        <Toaster />
       </BrowserRouter>
     </AuthProvider>
   );
@@ -67,7 +69,8 @@ function App() {
 
 const ChatWrapper = () => {
   const { user } = useAuth();
-  return <Chat teamId={user?.teamId} />;
+  return <ChatPage teamId={user?.teamId} currentUser={user} />; // Also pass currentUser prop
 };
+
 
 export default App;

@@ -21,63 +21,65 @@ const Login = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-20 p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-  <div className="text-center mb-8">
-    <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Welcome Back</h1>
-    <p className="text-gray-600 dark:text-gray-300 mt-2">Sign in to your account to continue</p>
-  </div>
-
-  {error && (
-    <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 rounded-md text-sm">
-      {error}
+    <div className="max-w-md mx-auto mt-2 p-8 bg-gray-900 rounded-lg border border-gray-800">
+    <div className="text-center mb-8">
+      <h1 className="text-3xl font-bold text-white">Welcome Back</h1>
+      <p className="text-gray-400 mt-2">Sign in to your account to continue</p>
     </div>
-  )}
-
-  <form onSubmit={handleSubmit} className="space-y-6">
-    <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
-      <input
-        type="email"
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition duration-200"
-        placeholder="your@email.com"
-      />
-    </div>
-    
-    <div>
-      <div className="flex justify-between items-center mb-1">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
-        <a href="/forgot-password" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Forgot password?</a>
+  
+    {error && (
+      <div className="mb-6 p-3 bg-gray-800 border border-red-900 text-red-400 rounded-md text-sm">
+        {error}
       </div>
-      <input
-        type="password"
-        required
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition duration-200"
-        placeholder="••••••••"
-      />
+    )}
+  
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full px-4 py-3 rounded-lg border border-gray-700 bg-gray-800 text-white focus:border-gray-600 focus:ring-1 focus:ring-gray-600"
+          placeholder="your@email.com"
+        />
+      </div>
+      
+      <div>
+        <div className="flex justify-between items-center mb-2">
+          <label className="block text-sm font-medium text-gray-300">Password</label>
+          <a href="/forgot-password" className="text-xs text-blue-400 hover:text-blue-300 hover:underline">
+            Forgot password?
+          </a>
+        </div>
+        <input
+          type="password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full px-4 py-3 rounded-lg border border-gray-700 bg-gray-800 text-white focus:border-gray-600 focus:ring-1 focus:ring-gray-600"
+          placeholder="••••••••"
+        />
+      </div>
+      
+      <button
+        type="submit"
+        className="w-full bg-white text-gray-900 font-medium py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors focus:ring-2 focus:ring-gray-400"
+      >
+        Sign In
+      </button>
+    </form>
+  
+    <div className="mt-6 pt-6 border-t border-gray-800">
+      <p className="text-sm text-gray-400 text-center">
+        Don't have an account?{' '}
+        <a href="/signup" className="font-medium text-blue-400 hover:text-blue-300 hover:underline">
+          Sign up
+        </a>
+      </p>
     </div>
-    
-    <button
-      type="submit"
-      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
-    >
-      Sign In
-    </button>
-  </form>
-
-  <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-    <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-      Don't have an account?{' '}
-      <a href="/signup" className="font-medium text-blue-600 dark:text-blue-400 hover:underline">
-        Sign up
-      </a>
-    </p>
   </div>
-</div>
   );
 };
 

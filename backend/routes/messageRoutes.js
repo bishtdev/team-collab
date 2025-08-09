@@ -9,8 +9,8 @@ router.use(auth);
 router.get('/:teamId', async (req, res) => {
   try {
     const messages = await Message.find({ teamId: req.params.teamId })
-      .populate('sender', 'name email')
-      .sort({ sentAt: 1 });
+      .populate('senderId', 'name email')
+      .sort({ timestamp: 1 });
     res.json(messages);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch messages' });
