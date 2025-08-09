@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Projects from './pages/Projects';
@@ -29,6 +29,7 @@ function App() {
       <BrowserRouter>
         <Layout>
           <Routes>
+            <Route path='/' element={<Navigate to="/signup" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path='/setup-team' element={<ProtectedRoute><TeamSetup/></ProtectedRoute>} />
