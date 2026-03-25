@@ -1,77 +1,97 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Layout from './components/Layout';
-import Projects from './pages/Projects';
-import KanbanBoard from './components/KanbanBoard';
+import AppLayout from './layouts/AppLayout';
+import AuthLayout from './layouts/AuthLayout';
+import PublicRoute from './components/PublicRoute';
 import ProtectedRoute from './components/ProtectedRoute';
-import { useParams } from 'react-router-dom';
+import Projects from './pages/Projects';
+import ProjectKanban from './pages/ProjectKanban';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import TeamSetup from './pages/TeamSetup';
-import ProjectKanban from './pages/ProjectKanban';
 import ChatPage from './components/ChatPage';
 import { Toaster } from '@/components/ui/sonner';
 
-const KanbanBoardWrapper = () => {
-  const { id } = useParams(); // project id
-  return (
-    <div>
-      <ProjectHeader projectId={id} /> {/* fetch & show name/desc */}
-      <KanbanBoard projectId={id} />
-    </div>
-  );
+const ChatWrapper = () => {
+  const { user } = useAuth();
+  return <ChatPage teamId={user?.teamId} currentUser={user} />;
 };
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Layout>
-          <Routes>
-            <Route path='/' element={<Navigate to="/signup" replace />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path='/setup-team' element={<ProtectedRoute><TeamSetup/></ProtectedRoute>} />
-            <Route
-              path="/projects"
-              element={
-                <ProtectedRoute>
+        <Routes>
+          {/* Public routes — Auth layout (no sidebar) */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <AuthLayout>
+                  <Login />
+                </AuthLayout>
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <PublicRoute>
+                <AuthLayout>
+                  <Signup />
+                </AuthLayout>
+              </PublicRoute>
+            }
+          />
+
+          {/* Protected routes — App layout (sidebar + header) */}
+          <Route
+            path="/projects"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
                   <Projects />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/project/:id/kanban"
-              element={
-                <ProtectedRoute>
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/project/:id/kanban"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
                   <ProjectKanban />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/chat"
-              element={
-                <ProtectedRoute>
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/setup-team"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <TeamSetup />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
                   <ChatWrapper />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </Layout>
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
         <Toaster />
       </BrowserRouter>
     </AuthProvider>
   );
 }
-
-// wrappers to get params (simplified)
-
-
-const ChatWrapper = () => {
-  const { user } = useAuth();
-  return <ChatPage teamId={user?.teamId} currentUser={user} />; // Also pass currentUser prop
-};
-
 
 export default App;

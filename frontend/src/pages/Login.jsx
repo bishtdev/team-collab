@@ -1,85 +1,116 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi';
 
 const Login = () => {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate()
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
     try {
       await login(email, password);
-      navigate("/projects")
+      navigate('/projects');
     } catch (err) {
-      setError(err.message || 'Login failed');
+      setError(err.message || 'Invalid email or password. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="max-w-md mx-auto mt-2 p-8 bg-gray-900 rounded-lg border border-gray-800">
-    <div className="text-center mb-8">
-      <h1 className="text-3xl font-bold text-white">Welcome Back</h1>
-      <p className="text-gray-400 mt-2">Sign in to your account to continue</p>
-    </div>
-  
-    {error && (
-      <div className="mb-6 p-3 bg-gray-800 border border-red-900 text-red-400 rounded-md text-sm">
-        {error}
+    <>
+      <div className="text-center mb-8">
+        <h1 className="text-2xl font-bold text-white">Welcome back</h1>
+        <p className="text-gray-500 mt-2 text-sm">Sign in to your account to continue</p>
       </div>
-    )}
-  
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-4 py-3 rounded-lg border border-gray-700 bg-gray-800 text-white focus:border-gray-600 focus:ring-1 focus:ring-gray-600"
-          placeholder="your@email.com"
-        />
-      </div>
-      
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <label className="block text-sm font-medium text-gray-300">Password</label>
-          <a href="/forgot-password" className="text-xs text-blue-400 hover:text-blue-300 hover:underline">
-            Forgot password?
-          </a>
+
+      {error && (
+        <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm flex items-start gap-2">
+          <span className="shrink-0 mt-0.5">⚠</span>
+          <span>{error}</span>
         </div>
-        <input
-          type="password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-4 py-3 rounded-lg border border-gray-700 bg-gray-800 text-white focus:border-gray-600 focus:ring-1 focus:ring-gray-600"
-          placeholder="••••••••"
-        />
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-2">Email</label>
+          <div className="relative">
+            <FiMail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 w-4 h-4" />
+            <input
+              id="login-email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-800 bg-gray-800/50 text-white placeholder:text-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm"
+              placeholder="your@email.com"
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-sm font-medium text-gray-400">Password</label>
+          </div>
+          <div className="relative">
+            <FiLock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 w-4 h-4" />
+            <input
+              id="login-password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full pl-10 pr-12 py-3 rounded-xl border border-gray-800 bg-gray-800/50 text-white placeholder:text-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400 transition-colors"
+            >
+              {showPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        <button
+          id="login-submit"
+          type="submit"
+          disabled={isLoading}
+          className="w-full bg-white text-gray-900 font-semibold py-3 px-4 rounded-xl hover:bg-gray-100 transition-all duration-200 focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+        >
+          {isLoading ? (
+            <>
+              <div className="w-4 h-4 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin" />
+              <span>Signing in...</span>
+            </>
+          ) : (
+            <>
+              <span>Sign In</span>
+              <FiArrowRight className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      </form>
+
+      <div className="mt-6 pt-6 border-t border-gray-800/80">
+        <p className="text-sm text-gray-500 text-center">
+          Don't have an account?{' '}
+          <Link to="/signup" className="font-medium text-white hover:text-gray-300 transition-colors">
+            Sign up
+          </Link>
+        </p>
       </div>
-      
-      <button
-        type="submit"
-        className="w-full bg-white text-gray-900 font-medium py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors focus:ring-2 focus:ring-gray-400"
-      >
-        Sign In
-      </button>
-    </form>
-  
-    <div className="mt-6 pt-6 border-t border-gray-800">
-      <p className="text-sm text-gray-400 text-center">
-        Don't have an account?{' '}
-        <a href="/signup" className="font-medium text-blue-400 hover:text-blue-300 hover:underline">
-          Sign up
-        </a>
-      </p>
-    </div>
-  </div>
+    </>
   );
 };
 

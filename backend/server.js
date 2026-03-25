@@ -49,8 +49,8 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
   serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 } else {
   // For development - use local file
-  // serviceAccount = require('./config/firebaseServiceAccount.json');
-  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  serviceAccount = require('./config/firebaseServiceAccount.json');
+  // serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 }
 
 const verifyFirebaseToken = require('./middlewares/verifyFirebaseToken');

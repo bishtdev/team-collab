@@ -1,31 +1,54 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import socket from '../services/socket';
-import api from '../services/api'; // Use your api service instead of axios
-
-
+import api from '../services/api';
+import { FiSend, FiMessageCircle } from 'react-icons/fi';
 
 const ChatPage = ({ teamId, currentUser }) => {
   const [message, setMessage] = useState('');
   const [chat, setChat] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [typingUsers, setTypingUsers] = useState([]);
+  const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: smooth ? 'smooth' : 'instant',
+    });
+  }, []);
 
   useEffect(() => {
     if (!teamId) return;
-    
-    // Join room
+
     socket.emit('joinTeamRoom', teamId);
 
-    // Receive real-time messages
     socket.on('receiveMessage', (newMsg) => {
       setChat((prev) => [...prev, newMsg]);
     });
 
-    // Load previous messages
+    socket.on('userTyping', ({ userId, userName }) => {
+      if (userId !== currentUser?._id) {
+        setTypingUsers((prev) => {
+          if (prev.find(u => u.userId === userId)) return prev;
+          return [...prev, { userId, userName }];
+        });
+        // Remove after 3 seconds
+        setTimeout(() => {
+          setTypingUsers((prev) => prev.filter(u => u.userId !== userId));
+        }, 3000);
+      }
+    });
+
     const fetchMessages = async () => {
+      setIsLoading(true);
       try {
         const res = await api.get(`/messages/${teamId}`);
         setChat(res.data);
       } catch (err) {
         console.error('Error fetching chat history:', err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -33,72 +56,252 @@ const ChatPage = ({ teamId, currentUser }) => {
 
     return () => {
       socket.off('receiveMessage');
+      socket.off('userTyping');
       socket.emit('leaveRoom', teamId);
     };
-  }, [teamId]);
+  }, [teamId, currentUser?._id]);
+
+  useEffect(() => {
+    scrollToBottom(!isLoading);
+  }, [chat, scrollToBottom, isLoading]);
 
   const handleSend = () => {
-  if (!message.trim() || !currentUser) return;
+    if (!message.trim() || !currentUser) return;
 
-  socket.emit('sendMessage', {
-    content: message, // Match the backend expectation
-    senderId: currentUser._id,
-    teamId,
-  });
-  setMessage('');
-};
+    socket.emit('sendMessage', {
+      content: message,
+      senderId: currentUser._id,
+      teamId,
+    });
+    setMessage('');
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setMessage(e.target.value);
+
+    // Emit typing indicator
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    socket.emit('typing', { teamId, userId: currentUser?._id, userName: currentUser?.name });
+    typingTimeoutRef.current = setTimeout(() => {}, 2000);
+  };
+
+  // Group messages by sender and time proximity
+  const getMessageGroups = () => {
+    const groups = [];
+    let currentGroup = null;
+
+    chat.forEach((msg, index) => {
+      const senderId = msg.senderId?._id || msg.senderId;
+      const timestamp = new Date(msg.timestamp);
+      const prevMsg = index > 0 ? chat[index - 1] : null;
+      const prevTimestamp = prevMsg ? new Date(prevMsg.timestamp) : null;
+
+      // Show date divider if it's a different day
+      const showDateDivider = !prevMsg || (
+        prevTimestamp &&
+        timestamp.toDateString() !== prevTimestamp.toDateString()
+      );
+
+      if (showDateDivider) {
+        groups.push({ type: 'date-divider', date: timestamp });
+      }
+
+      const prevSenderId = prevMsg?.senderId?._id || prevMsg?.senderId;
+      const timeDiff = prevTimestamp ? (timestamp - prevTimestamp) / 1000 / 60 : Infinity;
+
+      // Group if same sender and within 5 minutes
+      if (currentGroup && prevSenderId === senderId && timeDiff < 5 && !showDateDivider) {
+        currentGroup.messages.push(msg);
+      } else {
+        currentGroup = {
+          type: 'message-group',
+          senderId,
+          senderName: msg.senderId?.name || 'Unknown',
+          isOwn: senderId === currentUser?._id,
+          messages: [msg],
+        };
+        groups.push(currentGroup);
+      }
+    });
+
+    return groups;
+  };
+
+  const formatDate = (date) => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const formatTime = (timestamp) => {
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   if (!teamId || !currentUser) {
-    return <div>Loading chat...</div>;
-  }
-
-  return (
-    <div className="p-4 bg-black">
-  <h2 className="text-xl font-bold text-white mb-4">Team Chat</h2>
-  
-  {/* Messages container */}
-  <div className="h-[400px] overflow-y-auto border border-gray-800 bg-gray-900 rounded-lg mb-4 p-3">
-    {chat.map((msg, i) => (
-      <div 
-        key={i} 
-        className={`mb-3 ${
-          msg.senderId._id === currentUser._id ? 'text-right' : 'text-left'
-        }`}
-      >
-        <div className={`inline-block max-w-[80%] p-3 rounded-lg ${
-          msg.senderId._id === currentUser._id 
-            ? 'bg-gray-700' 
-            : 'bg-gray-800 border border-gray-700'
-        }`}>
-          <p className="text-sm font-medium text-blue-400 mb-1">
-            {msg.senderId._id === currentUser._id ? 'You' : msg.senderId.name}
-          </p>
-          <p className="text-gray-200">{msg.content}</p>
-          <p className="text-xs text-gray-500 mt-1">
-            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </p>
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-gray-700 border-t-white rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">Connecting to chat...</p>
         </div>
       </div>
-    ))}
-  </div>
+    );
+  }
 
-  {/* Message input */}
-  <div className="flex gap-2">
-    <input
-      className="flex-1 p-3 bg-gray-800 border border-gray-700 text-white rounded-lg focus:outline-none focus:border-gray-600"
-      placeholder="Type a message..."
-      value={message}
-      onChange={(e) => setMessage(e.target.value)}
-      onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-    />
-    <button 
-      className="px-4 bg-white text-gray-900 hover:bg-gray-200 rounded-lg transition-colors font-medium"
-      onClick={handleSend}
-    >
-      Send
-    </button>
-  </div>
-</div>
+  const messageGroups = getMessageGroups();
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-53px)]">
+      {/* Chat header */}
+      <div className="px-5 py-3 border-b border-gray-800/60 bg-gray-950/50 backdrop-blur-sm flex items-center gap-3">
+        <div className="p-2 bg-gray-800/60 rounded-xl">
+          <FiMessageCircle className="text-lg text-gray-400" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-white text-sm">Team Chat</h2>
+          <p className="text-xs text-gray-600">{chat.length} messages</p>
+        </div>
+      </div>
+
+      {/* Messages area */}
+      <div
+        ref={chatContainerRef}
+        className="flex-1 overflow-y-auto p-5 space-y-1 scrollbar-thin"
+      >
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="w-8 h-8 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+          </div>
+        ) : chat.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="w-20 h-20 rounded-2xl bg-gray-800/40 flex items-center justify-center mb-4">
+              <FiMessageCircle className="text-3xl text-gray-700" />
+            </div>
+            <h3 className="text-gray-400 font-medium">No messages yet</h3>
+            <p className="text-gray-600 text-sm mt-1 max-w-xs">
+              Start the conversation! Send a message to your team.
+            </p>
+          </div>
+        ) : (
+          <>
+            {messageGroups.map((group, i) => {
+              if (group.type === 'date-divider') {
+                return (
+                  <div key={`date-${i}`} className="flex items-center gap-3 py-3">
+                    <div className="flex-1 h-px bg-gray-800/60" />
+                    <span className="text-[11px] text-gray-600 font-medium px-2">
+                      {formatDate(group.date)}
+                    </span>
+                    <div className="flex-1 h-px bg-gray-800/60" />
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  key={`group-${i}`}
+                  className={`flex gap-2.5 mb-3 ${group.isOwn ? 'justify-end' : 'justify-start'}`}
+                >
+                  {/* Avatar (for others) */}
+                  {!group.isOwn && (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-semibold text-white flex-shrink-0 mt-auto">
+                      {group.senderName?.charAt(0)?.toUpperCase()}
+                    </div>
+                  )}
+
+                  <div className={`flex flex-col ${group.isOwn ? 'items-end' : 'items-start'} max-w-[75%]`}>
+                    {/* Sender name — only for others */}
+                    {!group.isOwn && (
+                      <span className="text-xs font-medium text-gray-500 mb-1 ml-1">
+                        {group.senderName}
+                      </span>
+                    )}
+
+                    {group.messages.map((msg, mi) => (
+                      <div
+                        key={mi}
+                        className={`px-3.5 py-2 text-sm mb-0.5 ${
+                          group.isOwn
+                            ? 'bg-white text-gray-900 rounded-2xl rounded-br-md'
+                            : 'bg-gray-800/60 text-gray-200 rounded-2xl rounded-bl-md border border-gray-800/40'
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                      </div>
+                    ))}
+
+                    {/* Timestamp on last message of group */}
+                    <span className={`text-[10px] text-gray-600 mt-0.5 ${group.isOwn ? 'mr-1' : 'ml-1'}`}>
+                      {formatTime(group.messages[group.messages.length - 1].timestamp)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
+
+        {/* Typing indicator */}
+        {typingUsers.length > 0 && (
+          <div className="flex items-center gap-2 pl-2 py-1">
+            <div className="flex gap-1">
+              <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+            <span className="text-xs text-gray-600">
+              {typingUsers.map(u => u.userName).join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+            </span>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input area */}
+      <div className="px-5 py-3 border-t border-gray-800/60 bg-gray-950/50 backdrop-blur-sm">
+        <div className="flex items-end gap-2">
+          <div className="flex-1 relative">
+            <textarea
+              id="chat-input"
+              className="w-full px-4 py-3 bg-gray-800/60 border border-gray-800/60 text-white rounded-xl focus:outline-none focus:border-gray-700 placeholder:text-gray-600 resize-none text-sm leading-relaxed scrollbar-thin"
+              placeholder="Type a message..."
+              value={message}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              style={{ maxHeight: '120px', minHeight: '44px' }}
+            />
+          </div>
+          <button
+            id="chat-send-btn"
+            className={`p-3 rounded-xl transition-all flex-shrink-0 ${
+              message.trim()
+                ? 'bg-white text-gray-900 hover:bg-gray-100 shadow-lg shadow-white/10'
+                : 'bg-gray-800/60 text-gray-600 cursor-not-allowed'
+            }`}
+            onClick={handleSend}
+            disabled={!message.trim()}
+          >
+            <FiSend className="w-4 h-4" />
+          </button>
+        </div>
+        <p className="text-[10px] text-gray-700 mt-1.5 ml-1">
+          Press Enter to send, Shift+Enter for new line
+        </p>
+      </div>
+    </div>
   );
 };
 
