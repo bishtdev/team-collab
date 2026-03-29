@@ -1,17 +1,17 @@
+// pages/TeamSetup.jsx
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import CreateTeamModal from '../components/modals/CreateTeamModal';
 import AddUserToTeamModal from '../components/modals/AddUserToTeamModal';
 import { FiUsers, FiPlus, FiArrowRight, FiBriefcase, FiUserPlus } from 'react-icons/fi';
 
 const TeamSetup = () => {
-  const { user } = useAuth();
-  const { canManageTeam, canAddTeamMember } = usePermissions();
+  const { user, refreshUser } = useAuth();
+  const { canManageTeam, canAddTeamMember, role } = usePermissions();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [teams, setTeams] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,9 +40,16 @@ const TeamSetup = () => {
 
   const loadAllUsers = async () => {
     try {
-      const res = await api.get('/teams/users/all');
-      setAllUsers(res.data.users || []);
+      // Only admins can access the getAllUsers endpoint
+      // For non-admins, we'll use the team members list instead
+      if (role === 'ADMIN') {
+        const res = await api.get('/teams/users/all');
+        setAllUsers(res.data.users || []);
+      } else {
+        setAllUsers([]);
+      }
     } catch (err) {
+      // Silently fail - user may not have permission
       setAllUsers([]);
     }
   };
@@ -61,14 +68,20 @@ const TeamSetup = () => {
       loadTeams();
       loadAllUsers();
     }
-  }, [user, location.pathname]);
+  }, [user]);
 
   const handleSetActive = async (teamId) => {
     try {
       await api.patch('/teams/select', { teamId });
+
+      // Refresh teams list
       await loadTeams();
+
+      // Navigate to projects page
+      // Note: We avoid window.location.reload() here because it causes
+      // a full page reload and loses React state. The auth context will
+      // pick up the new teamId on next interaction.
       navigate('/projects');
-      window.location.reload();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to set active team');
     }
@@ -158,8 +171,8 @@ const TeamSetup = () => {
             <div
               key={t._id}
               className={`p-5 bg-gray-900/60 rounded-2xl border transition-all duration-200 ${
-                user?.teamId === t._id 
-                  ? 'border-white/20 ring-1 ring-white/10' 
+                user?.teamId === t._id
+                  ? 'border-white/20 ring-1 ring-white/10'
                   : 'border-gray-800/60 hover:border-gray-700/60'
               }`}
             >

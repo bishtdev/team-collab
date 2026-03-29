@@ -1,7 +1,7 @@
+// components/modals/CreateTeamModal.jsx
 import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import api from '../../services/api';
-import { auth } from '../../firebaseConfig';
 
 const CreateTeamModal = ({ isOpen, onClose, onSuccess }) => {
   const [name, setName] = useState('');
@@ -28,15 +28,10 @@ const CreateTeamModal = ({ isOpen, onClose, onSuccess }) => {
     setError('');
 
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('Not authenticated');
-      const token = await currentUser.getIdToken();
-
-      await api.post(
-        '/teams',
-        { name, description },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      // The api.js interceptor automatically adds the Firebase auth token
+      // to every request via the Authorization header, so we don't need
+      // to manually fetch and attach it here
+      await api.post('/teams', { name, description });
 
       onSuccess?.();
       onClose();

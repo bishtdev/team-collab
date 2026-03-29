@@ -1,3 +1,4 @@
+// routes/teamRoutes.js
 const express = require('express');
 const router = express.Router();
 const auth = require('../middlewares/auth');
@@ -5,36 +6,44 @@ const checkRole = require('../middlewares/role');
 const validate = require('../middlewares/validate');
 const { createTeamSchema } = require('../validators/teamValidator');
 const controller = require('../controllers/teamController');
-const User = require('../models/User');
 
+// All routes require authentication
 router.use(auth);
 
-// Create team (any authenticated user — becomes ADMIN)
+// ---------------------------------------------------------------------------
+// Team CRUD Operations
+// ---------------------------------------------------------------------------
+
+// POST /api/teams - Create a new team
+// Any authenticated user can create a team and becomes its ADMIN
 router.post('/', validate(createTeamSchema), controller.createTeam);
 
-// Get my team
+// GET /api/teams/me - Get current user's active team
 router.get('/me', controller.getMyTeam);
 
+// GET /api/teams - List teams owned by the current user
 router.get('/', controller.listMyTeams);
-// Set active team
+
+// PATCH /api/teams/select - Set the user's active team
 router.patch('/select', controller.setActiveTeam);
 
-//to assign team member to team
+// ---------------------------------------------------------------------------
+// Team Member Management
+// ---------------------------------------------------------------------------
+
+// POST /api/teams/:teamId/add-user - Add a user to a team
+// Only ADMIN and MANAGER roles can add members
 router.post('/:teamId/add-user', checkRole(['ADMIN', 'MANAGER']), controller.addUserToTeam);
+
+// GET /api/teams/:teamId/members - Get all members of a team
 router.get('/:teamId/members', controller.getTeamMembers);
 
-// Get all users in the database
-router.get('/users/all', controller.getAllUsers);
+// ---------------------------------------------------------------------------
+// Admin Endpoints
+// ---------------------------------------------------------------------------
 
-// GET /api/users/team -> returns users in the same team as req.user
-router.get('/team', async (req, res) => {
-  try {
-    if (!req.user.teamId) return res.status(400).json({ error: 'User has no active team' });
-    const members = await User.find({ teamId: req.user.teamId }).select('name email role _id');
-    res.json({ members });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch team members' });
-  }
-});
+// GET /api/teams/users/all - Get all users in the database
+// Restricted to ADMIN role only to prevent data exposure
+router.get('/users/all', checkRole(['ADMIN']), controller.getAllUsers);
 
 module.exports = router;
