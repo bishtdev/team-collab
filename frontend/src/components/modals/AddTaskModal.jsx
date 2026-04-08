@@ -8,6 +8,8 @@ const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess 
   const [assignedTo, setAssignedTo] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dueDate, setDueDate] = useState('');
+  const [priority, setPriority] = useState('medium');
 
   useEffect(() => {
     if (isOpen) {
@@ -15,6 +17,8 @@ const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess 
       setDescription('');
       setAssignedTo('');
       setError('');
+      setDueDate('');
+      setPriority('medium');
     }
   }, [isOpen]);
 
@@ -35,6 +39,8 @@ const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess 
         status: 'todo',
         projectId,
         assignedTo: assignedTo || null,
+        dueDate,
+        priority
       });
 
       // Populate assignedTo for local state
@@ -110,6 +116,32 @@ const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess 
                 {member.name} ({member.email})
               </option>
             ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1.5">
+            Due Date
+          </label>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1.5">
+            Priority
+          </label>
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm appearance-none"
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
           </select>
         </div>
 

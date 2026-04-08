@@ -7,6 +7,8 @@ const createTaskSchema = Joi.object({
   title: Joi.string().required().max(200),
   description: Joi.string().allow('', null).max(2000),
   status: Joi.string().valid('todo', 'in-progress', 'done').default('todo'),
+  priority: Joi.string().valid('low', 'medium', 'high', 'urgent').default('medium'),
+  dueDate: Joi.date().allow(null).optional(),
   projectId: Joi.string().required(),
   assignedTo: Joi.string().optional().allow(null, ''),
 });
@@ -18,6 +20,8 @@ const updateTaskSchema = Joi.object({
   description: Joi.string().allow('', null).max(2000).optional(),
   status: Joi.string().valid('todo', 'in-progress', 'done').optional(),
   assignedTo: Joi.string().optional().allow(null, ''),
+  priority: Joi.string().valid('low', 'medium', 'high', 'urgent').optional(),
+  dueDate: Joi.date().allow(null).optional(),
 }).min(1); // At least one field must be provided for update
 
 module.exports = { createTaskSchema, updateTaskSchema };

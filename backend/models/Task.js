@@ -7,7 +7,11 @@ const taskSchema = new mongoose.Schema({
   status: { type: String, enum: ['todo', 'in-progress', 'done'], default: 'todo' },
   projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  dueDate: { type: Date, default: null },
+  priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
+
+  
 }, { timestamps: true });
 
 // ---------------------------------------------------------------------------
@@ -21,5 +25,7 @@ taskSchema.index({ projectId: 1 }); // Fast lookup of tasks by project
 taskSchema.index({ projectId: 1, status: 1 }); // Kanban board columns
 taskSchema.index({ assignedTo: 1 }); // Fast lookup of user's assigned tasks
 taskSchema.index({ createdBy: 1 }); // Audit trail
+taskSchema.index({ dueDate: 1 }); // Fast lookup of tasks by due date
+taskSchema.index({ priority: 1 }); // Fast lookup of tasks by priority
 
 module.exports = mongoose.model('Task', taskSchema);

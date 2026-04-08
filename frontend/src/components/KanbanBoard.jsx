@@ -227,6 +227,19 @@ const KanbanBoard = ({ projectId }) => {
                                       {task.title}
                                     </h3>
                                   )}
+                                  {task.dueDate && (
+                                    <div className="mt-2">
+                                      <span
+                                        className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-sm border ${task.dueDate < new Date().toISOString().split('T')[0]
+                                          ? 'bg-red-50 text-red-900 border-red-900 dark:bg-red-950 dark:text-red-400 dark:border-red-900'
+                                          : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-700'
+                                          }`}
+                                      >
+                                        <FiCalendar className="w-3 h-3 mr-2" />
+                                        {formatDate(task.dueDate)}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
                                   {canEditTask && (
@@ -253,7 +266,7 @@ const KanbanBoard = ({ projectId }) => {
                                     <select
                                       value={task.assignedTo?._id || ''}
                                       onChange={(e) => handleAssignTask(task._id, e.target.value || null)}
-                                      className="text-xs bg-gray-700/40 border border-gray-700/40 rounded-lg px-2 py-1 text-gray-400 focus:outline-none focus:border-gray-600 appearance-none max-w-[120px]"
+                                      className="text-xs bg-gray-700/40 border border-gray-700/40 rounded-sm px-2 py-1 text-gray-400 focus:outline-none focus:border-gray-600 appearance-none max-w-[120px]"
                                     >
                                       <option value="">Unassigned</option>
                                       {teamMembers.map(member => (

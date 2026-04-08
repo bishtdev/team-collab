@@ -81,7 +81,7 @@ exports.getMyTasks = async (req, res) => {
 // Verifies the project belongs to the user's team.
 exports.createTask = async (req, res) => {
   try {
-    const { title, description, status, projectId, assignedTo } = req.body;
+    const { title, description, status, projectId, assignedTo, dueDate, priority } = req.body;
 
     // Validate projectId
     if (!projectId || projectId === 'undefined') {
@@ -106,7 +106,9 @@ exports.createTask = async (req, res) => {
       status,
       projectId,
       assignedTo,
-      createdBy: req.user._id
+      createdBy: req.user._id,
+      dueDate,
+      priority
     });
 
     // Populate assignedTo before returning to include user name/email
@@ -125,7 +127,7 @@ exports.createTask = async (req, res) => {
 // Verifies the task's project belongs to the user's team.
 exports.updateTask = async (req, res) => {
   try {
-    const { status, assignedTo, title, description } = req.body;
+    const { status, assignedTo, title, description, dueDate, priority } = req.body;
 
     // First, find the task to check its project's team
     const task = await Task.findById(req.params.id);
@@ -145,6 +147,8 @@ exports.updateTask = async (req, res) => {
     if (assignedTo !== undefined) update.assignedTo = assignedTo || null;
     if (title !== undefined) update.title = title;
     if (description !== undefined) update.description = description;
+    if (dueDate !== undefined) update.dueDate = dueDate;
+    if (priority !== undefined) update.priority = priority;
 
     // Apply the update and return the populated result
     const updated = await Task.findByIdAndUpdate(
