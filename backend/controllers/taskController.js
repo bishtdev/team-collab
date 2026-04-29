@@ -1,6 +1,7 @@
 // controllers/taskController.js
 const Task = require('../models/Task');
 const Project = require('../models/Project');
+const Activity = require('../models/Activity');
 
 // ---------------------------------------------------------------------------
 // Helper: Verify project belongs to user's team
@@ -111,6 +112,14 @@ exports.createTask = async (req, res) => {
       priority
     });
 
+    // Create activity record for task creation
+    await Activity.create({
+      taskId: newTask._id,
+      actorId: req.user._id,
+      action: 'task_created',
+      details: { title, projectId }
+    });
+
     // Populate assignedTo before returning to include user name/email
     const populatedTask = await Task.findById(newTask._id)
       .populate('assignedTo', 'name email');
@@ -143,12 +152,67 @@ exports.updateTask = async (req, res) => {
 
     // Build update object - only include fields that were provided
     const update = {};
-    if (status !== undefined) update.status = status;
-    if (assignedTo !== undefined) update.assignedTo = assignedTo || null;
-    if (title !== undefined) update.title = title;
-    if (description !== undefined) update.description = description;
-    if (dueDate !== undefined) update.dueDate = dueDate;
-    if (priority !== undefined) update.priority = priority;
+    const activitiesToCreate = [];
+
+    if (status !== undefined && status !== task.status) {
+      update.status = status;
+      activitiesToCreate.push({
+        taskId: task._id,
+        actorId: req.user._id,
+        action: 'status_changed',
+        details: { from: task.status, to: status }
+      });
+    }
+
+    if (assignedTo !== undefined && assignedTo !== (task.assignedTo?.toString() || null)) {
+      update.assignedTo = assignedTo || null;
+      activitiesToCreate.push({
+        taskId: task._id,
+        actorId: req.user._id,
+        action: 'assignee_changed',
+        details: { from: task.assignedTo?.toString() || null, to: assignedTo || null }
+      });
+    }
+
+    if (title !== undefined && title !== task.title) {
+      update.title = title;
+      activitiesToCreate.push({
+        taskId: task._id,
+        actorId: req.user._id,
+        action: 'task_updated',
+        details: { field: 'title', from: task.title, to: title }
+      });
+    }
+
+    if (description !== undefined && description !== task.description) {
+      update.description = description;
+      activitiesToCreate.push({
+        taskId: task._id,
+        actorId: req.user._id,
+        action: 'task_updated',
+        details: { field: 'description' }
+      });
+    }
+
+    if (dueDate !== undefined && dueDate !== task.dueDate?.toISOString?.()) {
+      update.dueDate = dueDate;
+      activitiesToCreate.push({
+        taskId: task._id,
+        actorId: req.user._id,
+        action: 'due_date_changed',
+        details: { from: task.dueDate, to: dueDate }
+      });
+    }
+
+    if (priority !== undefined && priority !== task.priority) {
+      update.priority = priority;
+      activitiesToCreate.push({
+        taskId: task._id,
+        actorId: req.user._id,
+        action: 'priority_changed',
+        details: { from: task.priority, to: priority }
+      });
+    }
 
     // Apply the update and return the populated result
     const updated = await Task.findByIdAndUpdate(
@@ -156,6 +220,11 @@ exports.updateTask = async (req, res) => {
       update,
       { new: true } // Return the updated document
     ).populate('assignedTo', 'name email');
+
+    // Create activity records for each change
+    if (activitiesToCreate.length > 0) {
+      await Activity.insertMany(activitiesToCreate);
+    }
 
     res.json(updated);
   } catch (err) {

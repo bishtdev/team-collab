@@ -15,6 +15,9 @@ const taskRoutes = require('./routes/taskRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const userRoutes = require('./routes/userRoutes'); // New: separated user routes
+// Task comments & activities MVP
+const commentRoutes = require('./routes/commentRoutes');
+const activityRoutes = require('./routes/activityRoutes');
 
 // Model imports
 const Message = require('./models/Message');
@@ -137,6 +140,8 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes); // Auth routes handle their own Firebase verification
 app.use('/api/projects', verifyFirebaseToken, authenticate, projectRoutes);
 app.use('/api/tasks', verifyFirebaseToken, authenticate, taskRoutes);
+app.use('/api/tasks', verifyFirebaseToken, authenticate, commentRoutes);
+app.use('/api/tasks', verifyFirebaseToken, authenticate, activityRoutes);
 app.use('/api/messages', verifyFirebaseToken, authenticate, messageRoutes);
 app.use('/api/teams', verifyFirebaseToken, authenticate, teamRoutes);
 app.use('/api/users', verifyFirebaseToken, authenticate, userRoutes); // Separated user routes

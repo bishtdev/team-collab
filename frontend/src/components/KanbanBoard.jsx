@@ -16,8 +16,10 @@ import {
 import { Droppable } from './Droppable';
 import { Draggable } from './Draggable';
 import AddTaskModal from './modals/AddTaskModal';
+import TaskCommentsPanel from './TaskCommentsPanel';
+import ActivityFeedPanel from './ActivityFeedPanel';
 import { usePermissions } from '../hooks/usePermissions';
-import { FiPlus, FiMoreVertical, FiUser, FiCalendar, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiMoreVertical, FiUser, FiCalendar, FiEdit2, FiTrash2, FiMessageSquare, FiActivity } from 'react-icons/fi';
 
 const KanbanBoard = ({ projectId }) => {
   const [tasks, setTasks] = useState([]);
@@ -27,6 +29,8 @@ const KanbanBoard = ({ projectId }) => {
   const [editTitle, setEditTitle] = useState('');
   const [teamMembers, setTeamMembers] = useState([]);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [openCommentsTaskId, setOpenCommentsTaskId] = useState(null);
+  const [openActivityTaskId, setOpenActivityTaskId] = useState(null);
 
   const { canCreateTask, canEditTask, canDeleteTask } = usePermissions();
 
@@ -149,6 +153,15 @@ const KanbanBoard = ({ projectId }) => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  const toggleComments = (taskId) => {
+    setOpenCommentsTaskId(prev => prev === taskId ? null : taskId);
+  };
+
+  // Toggle activity panel for a task
+  const toggleActivity = (taskId) => {
+    setOpenActivityTaskId(prev => prev === taskId ? null : taskId);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -202,13 +215,15 @@ const KanbanBoard = ({ projectId }) => {
                     items={tasks.filter(t => t.status === statusId).map(t => t._id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    <div className="flex-1 overflow-y-auto p-2 bg-gray-900/40 rounded-b-xl border border-gray-800/50 border-t-0 min-h-[350px] space-y-2 scrollbar-thin">
+                    <div className="flex-1 overflow-y-auto p-2 min-h-[350px] space-y-2">
                       {tasks
                         .filter(task => task.status === statusId)
                         .map(task => (
                           <Draggable key={task._id} id={task._id}>
-                            <div className="p-3.5 bg-gray-800/60 rounded-xl border border-gray-800/40 cursor-grab active:cursor-grabbing hover:border-gray-700/60 transition-all group">
-                              <div className="flex justify-between items-start">
+                            <div className="group p-3 bg-gray-800 rounded-xl border border-gray-700 hover:border-gray-600 transition-colors cursor-grab active:cursor-grabbing">
+
+                              {/* Title row */}
+                              <div className="flex items-start gap-2">
                                 <div className="flex-1 min-w-0">
                                   {editingTask?._id === task._id ? (
                                     <input
@@ -219,85 +234,123 @@ const KanbanBoard = ({ projectId }) => {
                                         if (e.key === 'Escape') setEditingTask(null);
                                       }}
                                       onBlur={() => updateTaskTitle(task._id)}
-                                      className="w-full bg-gray-700/50 border border-gray-600/50 rounded-lg px-2 py-1 text-sm text-white focus:outline-none focus:border-gray-500"
+                                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-sm text-white focus:outline-none focus:border-gray-400"
                                       autoFocus
                                     />
                                   ) : (
-                                    <h3 className="font-medium text-sm text-white truncate">
+                                    <h3 className="text-sm font-medium text-white leading-snug">
                                       {task.title}
                                     </h3>
                                   )}
-                                  {task.dueDate && (
-                                    <div className="mt-2">
-                                      <span
-                                        className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-sm border ${task.dueDate < new Date().toISOString().split('T')[0]
-                                          ? 'bg-red-50 text-red-900 border-red-900 dark:bg-red-950 dark:text-red-400 dark:border-red-900'
-                                          : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-700'
-                                          }`}
-                                      >
-                                        <FiCalendar className="w-3 h-3 mr-2" />
-                                        {formatDate(task.dueDate)}
-                                      </span>
-                                    </div>
-                                  )}
                                 </div>
-                                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+
+                                {/* Action buttons */}
+                                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                   {canEditTask && (
-                                    <button onClick={() => handleEditTask(task)} className="p-1 text-gray-500 hover:text-white rounded transition-colors">
+                                    <button
+                                      onClick={() => handleEditTask(task)}
+                                      className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                                    >
                                       <FiEdit2 className="w-3.5 h-3.5" />
                                     </button>
                                   )}
                                   {canDeleteTask && (
-                                    <button onClick={() => handleDeleteTask(task._id)} className="p-1 text-gray-500 hover:text-red-400 rounded transition-colors">
+                                    <button
+                                      onClick={() => handleDeleteTask(task._id)}
+                                      className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-950 transition-colors"
+                                    >
                                       <FiTrash2 className="w-3.5 h-3.5" />
                                     </button>
                                   )}
                                 </div>
                               </div>
 
+                              {/* Description */}
                               {task.description && (
-                                <p className="mt-1.5 text-xs text-gray-500 line-clamp-2">{task.description}</p>
+                                <p className="mt-1.5 text-xs text-gray-400 line-clamp-2">
+                                  {task.description}
+                                </p>
                               )}
 
-                              <div className="mt-3 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  {/* Assignee */}
-                                  {canEditTask ? (
-                                    <select
-                                      value={task.assignedTo?._id || ''}
-                                      onChange={(e) => handleAssignTask(task._id, e.target.value || null)}
-                                      className="text-xs bg-gray-700/40 border border-gray-700/40 rounded-sm px-2 py-1 text-gray-400 focus:outline-none focus:border-gray-600 appearance-none max-w-[120px]"
-                                    >
-                                      <option value="">Unassigned</option>
-                                      {teamMembers.map(member => (
-                                        <option key={member._id} value={member._id}>
-                                          {member.name}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ) : task.assignedTo ? (
-                                    <span className="flex items-center gap-1 text-xs text-gray-500">
-                                      <FiUser className="w-3 h-3" />
-                                      {task.assignedTo.name}
-                                    </span>
-                                  ) : null}
+                              {/* Due date badge */}
+                              {task.dueDate && (
+                                <div className="mt-2">
+                                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded border ${task.dueDate < new Date().toISOString().split('T')[0]
+                                      ? ' text-red-700 bg-red-950 dark:text-red-400 border-red-900'
+                                      : ' bg-gray-900 text-gray-400 border-gray-700'
+                                    }`}>
+                                    <FiCalendar className="w-3 h-3 shrink-0" />
+                                    {formatDate(task.dueDate)}
+                                  </span>
                                 </div>
+                              )}
 
-                                {/* Date */}
+                              {/* Assignee + created date row */}
+                              <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                                {canEditTask ? (
+                                  <select
+                                    value={task.assignedTo?._id || ''}
+                                    onChange={(e) => handleAssignTask(task._id, e.target.value || null)}
+                                    className="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-400 focus:outline-none focus:border-gray-400 appearance-none max-w-[140px]"
+                                  >
+                                    <option value="">Unassigned</option>
+                                    {teamMembers.map(member => (
+                                      <option key={member._id} value={member._id}>{member.name}</option>
+                                    ))}
+                                  </select>
+                                ) : task.assignedTo ? (
+                                  <span className="flex items-center gap-1 text-xs text-gray-400">
+                                    <FiUser className="w-3 h-3 shrink-0" />
+                                    {task.assignedTo.name}
+                                  </span>
+                                ) : <div />}
+
                                 {task.createdAt && (
-                                  <span className="flex items-center gap-1 text-[10px] text-gray-600">
+                                  <span className="flex items-center gap-1 text-[10px] text-gray-600 shrink-0">
                                     <FiCalendar className="w-3 h-3" />
                                     {formatDate(task.createdAt)}
                                   </span>
                                 )}
                               </div>
+
+                              {/* Comments + Activity toggles */}
+                              <div className="mt-2 pt-2 border-t border-gray-700 flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleComments(task._id)}
+                                  className="text-xs text-gray-400 hover:text-gray-200 bg-transparent border border-gray-700 hover:border-gray-500 rounded-md px-2 py-1 transition-colors flex items-center gap-1"
+                                >
+                                  <FiMessageSquare className="w-3 h-3" />
+                                  {openCommentsTaskId === task._id ? 'Hide' : 'Comments'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleActivity(task._id)}
+                                  className="text-xs text-gray-400 hover:text-gray-200 bg-transparent border border-gray-700 hover:border-gray-500 rounded-md px-2 py-1 transition-colors flex items-center gap-1"
+                                >
+                                  <FiActivity className="w-3 h-3" />
+                                  {openActivityTaskId === task._id ? 'Hide' : 'Activity'}
+                                </button>
+                              </div>
+
+                              {openCommentsTaskId === task._id && (
+                                <div className="mt-2">
+                                  <TaskCommentsPanel taskId={task._id} />
+                                </div>
+                              )}
+
+                              {openActivityTaskId === task._id && (
+                                <div className="mt-2">
+                                  <ActivityFeedPanel taskId={task._id} />
+                                </div>
+                              )}
                             </div>
                           </Draggable>
                         ))
                       }
 
                       {tasks.filter(task => task.status === statusId).length === 0 && (
-                        <div className="flex flex-col items-center justify-center h-full py-10 text-gray-700">
+                        <div className="flex flex-col items-center justify-center h-full py-10 text-gray-600">
                           <p className="text-sm">No tasks</p>
                           <p className="text-xs mt-0.5">Drag tasks here</p>
                         </div>

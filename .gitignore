@@ -2,3 +2,6 @@
 /backend/.env
 /backend/config/firebaseServiceAccount.json
 /backend/node_modules
+/frontend/node_modules
+Plan.md
+taskcomment&activitylog.md
