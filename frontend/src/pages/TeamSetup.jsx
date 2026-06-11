@@ -77,6 +77,8 @@ const TeamSetup = () => {
       // Refresh teams list
       await loadTeams();
 
+      await refreshUser();
+
       // Navigate to projects page
       // Note: We avoid window.location.reload() here because it causes
       // a full page reload and loses React state. The auth context will

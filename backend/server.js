@@ -18,6 +18,7 @@ const userRoutes = require('./routes/userRoutes'); // New: separated user routes
 // Task comments & activities MVP
 const commentRoutes = require('./routes/commentRoutes');
 const activityRoutes = require('./routes/activityRoutes');
+const subtaskRoutes = require('./routes/subtaskRoutes');
 
 // Model imports
 const Message = require('./models/Message');
@@ -142,6 +143,7 @@ app.use('/api/projects', verifyFirebaseToken, authenticate, projectRoutes);
 app.use('/api/tasks', verifyFirebaseToken, authenticate, taskRoutes);
 app.use('/api/tasks', verifyFirebaseToken, authenticate, commentRoutes);
 app.use('/api/tasks', verifyFirebaseToken, authenticate, activityRoutes);
+app.use('/api/tasks', verifyFirebaseToken, authenticate, subtaskRoutes);
 app.use('/api/messages', verifyFirebaseToken, authenticate, messageRoutes);
 app.use('/api/teams', verifyFirebaseToken, authenticate, teamRoutes);
 app.use('/api/users', verifyFirebaseToken, authenticate, userRoutes); // Separated user routes

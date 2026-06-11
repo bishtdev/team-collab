@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import api from '../services/api';
 import {
   DndContext,
@@ -18,8 +18,9 @@ import { Draggable } from './Draggable';
 import AddTaskModal from './modals/AddTaskModal';
 import TaskCommentsPanel from './TaskCommentsPanel';
 import ActivityFeedPanel from './ActivityFeedPanel';
+import SubtasksPanel from './SubtasksPanel';
 import { usePermissions } from '../hooks/usePermissions';
-import { FiPlus, FiMoreVertical, FiUser, FiCalendar, FiEdit2, FiTrash2, FiMessageSquare, FiActivity } from 'react-icons/fi';
+import { FiPlus, FiMoreVertical, FiUser, FiCalendar, FiEdit2, FiTrash2, FiMessageSquare, FiActivity, FiCheckSquare } from 'react-icons/fi';
 
 const KanbanBoard = ({ projectId }) => {
   const [tasks, setTasks] = useState([]);
@@ -31,6 +32,8 @@ const KanbanBoard = ({ projectId }) => {
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [openCommentsTaskId, setOpenCommentsTaskId] = useState(null);
   const [openActivityTaskId, setOpenActivityTaskId] = useState(null);
+  const [openSubtasksTaskId, setOpenSubtasksTaskId] = useState(null);
+  const [subtaskSummaries, setSubtaskSummaries] = useState({});
 
   const { canCreateTask, canEditTask, canDeleteTask } = usePermissions();
 
@@ -162,6 +165,15 @@ const KanbanBoard = ({ projectId }) => {
     setOpenActivityTaskId(prev => prev === taskId ? null : taskId);
   };
 
+  // Toggle subtasks panel for a task
+  const toggleSubtasks = (taskId) => {
+    setOpenSubtasksTaskId(prev => prev === taskId ? null : taskId);
+  };
+
+  const handleSubtaskSummary = useCallback((taskId, total, completed) => {
+    setSubtaskSummaries(prev => ({ ...prev, [taskId]: { total, completed } }));
+  }, []);
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -272,6 +284,14 @@ const KanbanBoard = ({ projectId }) => {
                                 </p>
                               )}
 
+                              {/* Subtask progress */}
+                              {subtaskSummaries[task._id] && (
+                                <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
+                                  <FiCheckSquare className="w-3 h-3" />
+                                  <span>{subtaskSummaries[task._id].completed}/{subtaskSummaries[task._id].total} subtasks</span>
+                                </div>
+                              )}
+
                               {/* Due date badge */}
                               {task.dueDate && (
                                 <div className="mt-2">
@@ -313,7 +333,7 @@ const KanbanBoard = ({ projectId }) => {
                                 )}
                               </div>
 
-                              {/* Comments + Activity toggles */}
+                              {/* Comments + Activity + Subtasks toggles */}
                               <div className="mt-2 pt-2 border-t border-gray-700 flex gap-2">
                                 <button
                                   type="button"
@@ -331,6 +351,14 @@ const KanbanBoard = ({ projectId }) => {
                                   <FiActivity className="w-3 h-3" />
                                   {openActivityTaskId === task._id ? 'Hide' : 'Activity'}
                                 </button>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSubtasks(task._id)}
+                                  className="text-xs text-gray-400 hover:text-gray-200 bg-transparent border border-gray-700 hover:border-gray-500 rounded-md px-2 py-1 transition-colors flex items-center gap-1"
+                                >
+                                  <FiCheckSquare className="w-3 h-3" />
+                                  {openSubtasksTaskId === task._id ? 'Hide' : `Subtasks${subtaskSummaries[task._id] ? ` (${subtaskSummaries[task._id].completed}/${subtaskSummaries[task._id].total})` : ''}`}
+                                </button>
                               </div>
 
                               {openCommentsTaskId === task._id && (
@@ -342,6 +370,15 @@ const KanbanBoard = ({ projectId }) => {
                               {openActivityTaskId === task._id && (
                                 <div className="mt-2">
                                   <ActivityFeedPanel taskId={task._id} />
+                                </div>
+                              )}
+
+                              {openSubtasksTaskId === task._id && (
+                                <div className="mt-2">
+                                  <SubtasksPanel
+                                    taskId={task._id}
+                                    onSummaryChange={(total, completed) => handleSubtaskSummary(task._id, total, completed)}
+                                  />
                                 </div>
                               )}
                             </div>

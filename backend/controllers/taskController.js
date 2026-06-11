@@ -2,6 +2,8 @@
 const Task = require('../models/Task');
 const Project = require('../models/Project');
 const Activity = require('../models/Activity');
+const Subtask = require('../models/Subtask');
+const Comment = require('../models/Comment');
 
 // ---------------------------------------------------------------------------
 // Helper: Verify project belongs to user's team
@@ -250,7 +252,13 @@ exports.deleteTask = async (req, res) => {
       return res.status(access.status).json({ error: access.error });
     }
 
-    // Delete the task
+    // Delete related subtasks, comments, activities first, then the task
+    // Order matters: clean up children before parent so a partial failure preserves the task
+    await Promise.all([
+      Subtask.deleteMany({ taskId: req.params.id }),
+      Comment.deleteMany({ taskId: req.params.id }),
+      Activity.deleteMany({ taskId: req.params.id }),
+    ]);
     await Task.findByIdAndDelete(req.params.id);
     res.json({ message: 'Task deleted' });
   } catch (err) {
