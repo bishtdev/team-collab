@@ -1,37 +1,28 @@
-import React, { useEffect, useState } from 'react';
-import api from '../services/api';
+import React, { useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
+import { fetchProjects, deleteProject } from '../features/projects/projectsSlice';
 import ProjectFormModal from '../components/modals/ProjectFormModal';
 import { Link } from 'react-router-dom';
-import { FiPlus, FiEdit2, FiTrash2, FiFolder, FiLoader, FiUsers } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiFolder, FiLoader } from 'react-icons/fi';
+import { useState } from 'react';
 
 const Projects = () => {
-  const [projects, setProjects] = useState([]);
+  const dispatch = useDispatch();
+  const { items: projects, isLoading, isMutating, error } = useSelector(state => state.projects);
   const { user } = useAuth();
   const { canCreateProject, canEditProject, canDeleteProject } = usePermissions();
-  const [isLoading, setIsLoading] = useState(false);
 
-  // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [editingProject, setEditingProject] = useState(null);
 
-  const load = async () => {
-    setIsLoading(true);
-    try {
-      const res = await api.get('/projects');
-      setProjects(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (user?.teamId) load();
-  }, [user?.teamId]);
+    if (user?.teamId) {
+      dispatch(fetchProjects());
+    }
+  }, [user?.teamId, dispatch]);
 
   const openCreate = () => {
     setModalMode('create');
@@ -45,27 +36,13 @@ const Projects = () => {
     setModalOpen(true);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
     if (!window.confirm('Are you sure you want to delete this project?')) return;
-    try {
-      await api.delete(`/projects/${id}`);
-      load();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const getRoleBadgeColor = (role) => {
-    switch (role) {
-      case 'ADMIN': return 'bg-amber-500/10 text-amber-400';
-      case 'MANAGER': return 'bg-blue-500/10 text-blue-400';
-      default: return 'bg-gray-500/10 text-gray-400';
-    }
+    dispatch(deleteProject(id));
   };
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
-      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-white">Projects</h1>
@@ -85,7 +62,12 @@ const Projects = () => {
         )}
       </div>
 
-      {/* Content */}
+      {error && (
+        <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex justify-center py-20">
           <div className="flex flex-col items-center gap-3">
@@ -140,6 +122,7 @@ const Projects = () => {
                       onClick={() => handleDelete(p._id)}
                       className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                       title="Delete project"
+                      disabled={isMutating}
                     >
                       <FiTrash2 className="w-4 h-4" />
                     </button>
@@ -147,7 +130,6 @@ const Projects = () => {
                 </div>
               </div>
 
-              {/* Assigned users */}
               {p.assignedUsers && p.assignedUsers.length > 0 && (
                 <div className="flex items-center gap-2 mb-4">
                   <div className="flex -space-x-2">
@@ -183,13 +165,11 @@ const Projects = () => {
         </div>
       )}
 
-      {/* Project Modal */}
       <ProjectFormModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         mode={modalMode}
         project={editingProject}
-        onSuccess={load}
       />
     </div>
   );

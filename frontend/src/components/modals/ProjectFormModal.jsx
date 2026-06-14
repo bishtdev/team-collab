@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../Modal';
-import api from '../../services/api';
+import { createProject, updateProject, fetchTeamUsers } from '../../features/projects/projectsSlice';
 
-const ProjectFormModal = ({ isOpen, onClose, mode = 'create', project = null, onSuccess }) => {
+const ProjectFormModal = ({ isOpen, onClose, mode = 'create', project = null }) => {
+  const dispatch = useDispatch();
+  const { teamMembers, isMutating, error } = useSelector(state => state.projects);
+
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [teamMembers, setTeamMembers] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  const [localError, setLocalError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -22,22 +23,10 @@ const ProjectFormModal = ({ isOpen, onClose, mode = 'create', project = null, on
         setDescription('');
         setSelectedUsers([]);
       }
-      setError('');
-      loadTeamMembers();
+      setLocalError('');
+      dispatch(fetchTeamUsers());
     }
-  }, [isOpen, mode, project]);
-
-  const loadTeamMembers = async () => {
-    setIsLoadingMembers(true);
-    try {
-      const res = await api.get('/users/team');
-      setTeamMembers(res.data.members || []);
-    } catch (err) {
-      setTeamMembers([]);
-    } finally {
-      setIsLoadingMembers(false);
-    }
-  };
+  }, [isOpen, mode, project, dispatch]);
 
   const toggleUser = (userId) => {
     setSelectedUsers(prev =>
@@ -50,30 +39,21 @@ const ProjectFormModal = ({ isOpen, onClose, mode = 'create', project = null, on
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) {
-      setError('Project name is required');
+      setLocalError('Project name is required');
       return;
     }
 
-    setIsSubmitting(true);
-    setError('');
+    const payload = { name, description, assignedUsers: selectedUsers };
 
-    try {
-      const payload = { name, description, assignedUsers: selectedUsers };
-
-      if (mode === 'create') {
-        await api.post('/projects', payload);
-      } else {
-        await api.put(`/projects/${project._id}`, payload);
-      }
-
-      onSuccess?.();
-      onClose();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Operation failed. Please try again.');
-    } finally {
-      setIsSubmitting(false);
+    if (mode === 'create') {
+      dispatch(createProject(payload));
+    } else {
+      dispatch(updateProject({ id: project._id, data: payload }));
     }
+    onClose();
   };
+
+  const displayError = localError || error;
 
   return (
     <Modal
@@ -83,9 +63,9 @@ const ProjectFormModal = ({ isOpen, onClose, mode = 'create', project = null, on
       subtitle={mode === 'create' ? 'Start a new project for your team' : 'Update project details'}
       size="md"
     >
-      {error && (
+      {displayError && (
         <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
-          {error}
+          {displayError}
         </div>
       )}
 
@@ -121,9 +101,7 @@ const ProjectFormModal = ({ isOpen, onClose, mode = 'create', project = null, on
           <label className="block text-sm font-medium text-gray-400 mb-1.5">
             Assign Members
           </label>
-          {isLoadingMembers ? (
-            <div className="py-4 text-center text-gray-600 text-sm">Loading members...</div>
-          ) : teamMembers.length === 0 ? (
+          {teamMembers.length === 0 ? (
             <div className="py-4 text-center text-gray-600 text-sm">No team members found</div>
           ) : (
             <div className="max-h-36 overflow-y-auto space-y-1 border border-gray-800 rounded-xl p-2 bg-gray-800/30 scrollbar-thin">
@@ -160,10 +138,10 @@ const ProjectFormModal = ({ isOpen, onClose, mode = 'create', project = null, on
           </button>
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isMutating}
             className="px-5 py-2.5 bg-white text-gray-900 font-medium rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
           >
-            {isSubmitting ? (
+            {isMutating ? (
               <>
                 <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin" />
                 <span>{mode === 'create' ? 'Creating...' : 'Saving...'}</span>

@@ -1,46 +1,41 @@
-// components/modals/CreateTeamModal.jsx
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../Modal';
-import api from '../../services/api';
+import { createTeam } from '../../features/teams/teamsSlice';
 
 const CreateTeamModal = ({ isOpen, onClose, onSuccess }) => {
+  const dispatch = useDispatch();
+  const { isMutating, error } = useSelector(state => state.teams);
+
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localError, setLocalError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       setName('');
       setDescription('');
-      setError('');
+      setLocalError('');
     }
   }, [isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) {
-      setError('Team name is required');
+      setLocalError('Team name is required');
       return;
     }
 
-    setIsSubmitting(true);
-    setError('');
-
     try {
-      // The api.js interceptor automatically adds the Firebase auth token
-      // to every request via the Authorization header, so we don't need
-      // to manually fetch and attach it here
-      await api.post('/teams', { name, description });
-
+      await dispatch(createTeam({ name, description })).unwrap();
       onSuccess?.();
       onClose();
-    } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to create team');
-    } finally {
-      setIsSubmitting(false);
+    } catch {
+      // error handled by slice
     }
   };
+
+  const displayError = localError || error;
 
   return (
     <Modal
@@ -50,9 +45,9 @@ const CreateTeamModal = ({ isOpen, onClose, onSuccess }) => {
       subtitle="Create a team and invite members to collaborate"
       size="md"
     >
-      {error && (
+      {displayError && (
         <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
-          {error}
+          {displayError}
         </div>
       )}
 
@@ -95,10 +90,10 @@ const CreateTeamModal = ({ isOpen, onClose, onSuccess }) => {
           </button>
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isMutating}
             className="px-5 py-2.5 bg-white text-gray-900 font-medium rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
           >
-            {isSubmitting ? (
+            {isMutating ? (
               <>
                 <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin" />
                 <span>Creating...</span>

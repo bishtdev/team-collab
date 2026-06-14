@@ -1,18 +1,26 @@
 import React, { useEffect, useRef } from 'react';
-import { useSocket } from '../context/SocketContext';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import {
+  fetchNotifications,
+  markAsRead,
+  markAllAsRead,
+  deleteNotification,
+  clearAllNotifications
+} from '../features/notifications/notificationsSlice';
 import { FiBell, FiCheck, FiExternalLink, FiTrash2, FiX } from 'react-icons/fi';
 
 const NotificationPanel = ({ isOpen, onClose }) => {
-  const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification, clearAllNotifications, fetchNotifications } = useSocket();
+  const dispatch = useDispatch();
+  const { items: notifications, unreadCount } = useSelector(state => state.notifications);
   const navigate = useNavigate();
   const panelRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && notifications.length === 0) {
-      fetchNotifications(1, 20);
+      dispatch(fetchNotifications({ page: 1, limit: 20 }));
     }
-  }, [isOpen, fetchNotifications, notifications.length]);
+  }, [isOpen, dispatch, notifications.length]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -27,7 +35,7 @@ const NotificationPanel = ({ isOpen, onClose }) => {
 
   const handleNavigate = (notification) => {
     if (notification.taskId) {
-      markAsRead(notification._id);
+      dispatch(markAsRead(notification._id));
       if (notification.projectId) {
         navigate(`/project/${notification.projectId}/kanban`);
       }
@@ -57,7 +65,6 @@ const NotificationPanel = ({ isOpen, onClose }) => {
       ref={panelRef}
       className="absolute right-0 top-full mt-2 w-80 bg-gray-900 border border-gray-800 rounded-xl shadow-2xl shadow-black/50 z-50 overflow-hidden"
     >
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
         <div className="flex items-center gap-2">
           <FiBell className="text-gray-400 w-4 h-4" />
@@ -71,7 +78,7 @@ const NotificationPanel = ({ isOpen, onClose }) => {
         <div className="flex items-center gap-1">
           {unreadCount > 0 && (
             <button
-              onClick={markAllAsRead}
+              onClick={() => dispatch(markAllAsRead())}
               className="text-xs text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1 px-1.5 py-1 rounded hover:bg-gray-800"
               title="Mark all as read"
             >
@@ -80,7 +87,7 @@ const NotificationPanel = ({ isOpen, onClose }) => {
           )}
           {notifications.length > 0 && (
             <button
-              onClick={clearAllNotifications}
+              onClick={() => dispatch(clearAllNotifications())}
               className="text-xs text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1 px-1.5 py-1 rounded hover:bg-red-950/30"
               title="Clear all notifications"
             >
@@ -90,7 +97,6 @@ const NotificationPanel = ({ isOpen, onClose }) => {
         </div>
       </div>
 
-      {/* List */}
       <div className="max-h-96 overflow-y-auto scrollbar-thin">
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-gray-600">
@@ -124,7 +130,7 @@ const NotificationPanel = ({ isOpen, onClose }) => {
                 </div>
               </button>
               <button
-                onClick={(e) => { e.stopPropagation(); removeNotification(n._id); }}
+                onClick={(e) => { e.stopPropagation(); dispatch(deleteNotification(n._id)); }}
                 className="absolute top-2 right-2 p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-all"
                 title="Remove notification"
               >

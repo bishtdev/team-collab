@@ -1,10 +1,14 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import api from '../services/api';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchSubtasks, createSubtask, updateSubtask, deleteSubtask } from '../features/tasks/subtasksSlice';
 import { FiPlus, FiTrash2 } from 'react-icons/fi';
 
 const SubtasksPanel = ({ taskId, onSummaryChange }) => {
-  const [subtasks, setSubtasks] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const dispatch = useDispatch();
+  const subtaskState = useSelector(state => state.subtasks[taskId]);
+  const subtasks = useMemo(() => subtaskState?.items || [], [subtaskState?.items]);
+  const isLoading = subtaskState?.isLoading || false;
+
   const [error, setError] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [togglingIds, setTogglingIds] = useState(new Set());
@@ -18,40 +22,24 @@ const SubtasksPanel = ({ taskId, onSummaryChange }) => {
     }
   }, [onSummaryChange]);
 
-  const fetchSubtasks = useCallback(async () => {
-    if (!taskId) return;
-    setIsLoading(true);
-    setError('');
-    try {
-      const res = await api.get(`/tasks/${taskId}/subtasks`);
-      const list = res.data.subtasks || [];
-      setSubtasks(list);
-      emitSummary(list);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load subtasks');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [taskId, emitSummary]);
+  useEffect(() => {
+    if (taskId) dispatch(fetchSubtasks(taskId));
+  }, [taskId, dispatch]);
 
   useEffect(() => {
-    if (taskId) fetchSubtasks();
-  }, [taskId]);
+    emitSummary(subtasks);
+  }, [subtasks, emitSummary]);
 
   const handleAdd = async (e) => {
     e.preventDefault();
     const title = newTitle.trim();
     if (!title) return;
     try {
-      const res = await api.post(`/tasks/${taskId}/subtasks`, { title });
-      const created = res.data;
-      const updated = [...subtasks, created];
-      setSubtasks(updated);
-      emitSummary(updated);
+      await dispatch(createSubtask({ taskId, data: { title } })).unwrap();
       setNewTitle('');
       inputRef.current?.focus();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to add subtask');
+      setError(typeof err === 'string' ? err : 'Failed to add subtask');
     }
   };
 
@@ -59,27 +47,10 @@ const SubtasksPanel = ({ taskId, onSummaryChange }) => {
     if (togglingIds.has(subtask._id)) return;
 
     const newCompleted = !subtask.completed;
-    const prev = subtasks;
-    const optimisticList = prev.map(s =>
-      s._id === subtask._id ? { ...s, completed: newCompleted } : s
-    );
-
-    setSubtasks(optimisticList);
-    emitSummary(optimisticList);
-
-    setTogglingIds(prev => new Set(prev).add(subtask._id));
-
     try {
-      const res = await api.put(`/tasks/${taskId}/subtasks/${subtask._id}`, { completed: newCompleted });
-      const successList = optimisticList.map(s =>
-        s._id === subtask._id ? res.data : s
-      );
-      setSubtasks(successList);
-      emitSummary(successList);
+      await dispatch(updateSubtask({ taskId, subtaskId: subtask._id, data: { completed: newCompleted } })).unwrap();
     } catch (err) {
-      setSubtasks(prev);
-      emitSummary(prev);
-      setError(err.response?.data?.error || 'Failed to update subtask');
+      setError(typeof err === 'string' ? err : 'Failed to update subtask');
     } finally {
       setTogglingIds(prev => {
         const next = new Set(prev);
@@ -91,12 +62,9 @@ const SubtasksPanel = ({ taskId, onSummaryChange }) => {
 
   const handleDelete = async (subtaskId) => {
     try {
-      await api.delete(`/tasks/${taskId}/subtasks/${subtaskId}`);
-      const updated = subtasks.filter(s => s._id !== subtaskId);
-      setSubtasks(updated);
-      emitSummary(updated);
+      await dispatch(deleteSubtask({ taskId, subtaskId })).unwrap();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete subtask');
+      setError(typeof err === 'string' ? err : 'Failed to delete subtask');
     }
   };
 
@@ -135,7 +103,7 @@ const SubtasksPanel = ({ taskId, onSummaryChange }) => {
         {isLoading && subtasks.length === 0 ? (
           <div className="text-xs text-gray-400 py-2">Loading subtasks...</div>
         ) : subtasks.length === 0 && !isLoading ? (
-          <div className="text-xs text-gray-500 py-2">No subtasks yet — add one above.</div>
+          <div className="text-xs text-gray-500 py-2">No subtasks yet - add one above.</div>
         ) : (
           subtasks.map((s) => (
             <div

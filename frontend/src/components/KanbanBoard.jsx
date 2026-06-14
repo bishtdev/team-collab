@@ -1,5 +1,7 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import api from '../services/api';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchTasks, updateTask, deleteTask, optimisticUpdateStatus, revertTaskStatus } from '../features/tasks/tasksSlice';
+import { fetchTeamUsers } from '../features/projects/projectsSlice';
 import {
   DndContext,
   closestCenter,
@@ -23,15 +25,15 @@ import { usePermissions } from '../hooks/usePermissions';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { toast } from 'sonner';
-import { FiPlus, FiMoreVertical, FiUser, FiCalendar, FiEdit2, FiTrash2, FiMessageSquare, FiActivity, FiCheckSquare } from 'react-icons/fi';
+import { FiPlus, FiUser, FiCalendar, FiEdit2, FiTrash2, FiMessageSquare, FiActivity, FiCheckSquare } from 'react-icons/fi';
 
 const KanbanBoard = ({ projectId }) => {
-  const [tasks, setTasks] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const dispatch = useDispatch();
+  const { items: tasks, isLoading } = useSelector(state => state.tasks);
+  const { teamMembers } = useSelector(state => state.projects);
   const [activeTask, setActiveTask] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
   const [editTitle, setEditTitle] = useState('');
-  const [teamMembers, setTeamMembers] = useState([]);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [openCommentsTaskId, setOpenCommentsTaskId] = useState(null);
   const [openActivityTaskId, setOpenActivityTaskId] = useState(null);
@@ -55,63 +57,38 @@ const KanbanBoard = ({ projectId }) => {
   );
 
   useEffect(() => {
-    const fetchMembers = async () => {
-      try {
-        const res = await api.get('/users/team');
-        setTeamMembers(res.data.members || []);
-      } catch {
-        setTeamMembers([]);
-      }
-    };
-    if (projectId) fetchMembers();
-  }, [projectId]);
+    if (projectId) {
+      dispatch(fetchTasks(projectId));
+      dispatch(fetchTeamUsers());
+    }
+  }, [projectId, dispatch]);
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      if (!projectId) { setIsLoading(false); return; }
-      setIsLoading(true);
-      try {
-        const res = await api.get(`/tasks?projectId=${projectId}`);
-        setTasks(res.data);
-      } catch {
-        setTasks([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchTasks();
-  }, [projectId]);
-
-  // Real-time updates via socket
   useEffect(() => {
     if (!socket || !projectId) return;
 
     const handleTaskCreated = ({ projectId: pid }) => {
-      if (pid === projectId) {
-        fetchTasksRef.current();
-      }
+      if (pid === projectId) dispatch(fetchTasks(projectId));
     };
 
     const handleTaskUpdated = ({ projectId: pid }) => {
-      if (pid === projectId) {
-        fetchTasksRef.current();
-      }
+      if (pid === projectId) dispatch(fetchTasks(projectId));
     };
 
     const handleTaskDeleted = ({ taskId, projectId: pid }) => {
       if (pid === projectId) {
-        setTasks(prev => prev.filter(t => t._id !== taskId));
+        dispatch({ type: 'tasks/delete/fulfilled', payload: taskId });
       }
     };
 
     const handleCommentAdded = ({ taskId, projectId: pid, actorName }) => {
       if (pid === projectId && actorName !== user?.name) {
-        const task = tasksRef.current.find(t => t._id === taskId);
+        const task = tasks.find(t => t._id === taskId);
         if (task) {
           toast.info(`${actorName} commented on "${task.title}"`);
         }
       }
     };
+
     socket.on('task:created', handleTaskCreated);
     socket.on('task:updated', handleTaskUpdated);
     socket.on('task:deleted', handleTaskDeleted);
@@ -123,22 +100,7 @@ const KanbanBoard = ({ projectId }) => {
       socket.off('task:deleted', handleTaskDeleted);
       socket.off('comment:added', handleCommentAdded);
     };
-  }, [socket, projectId, user?.name]);
-
-  const tasksRef = useRef(tasks);
-  tasksRef.current = tasks;
-
-  // Ref to allow socket handler to refetch latest tasks
-  const fetchTasksRef = useRef();
-  fetchTasksRef.current = async () => {
-    if (!projectId) return;
-    try {
-      const res = await api.get(`/tasks?projectId=${projectId}`);
-      setTasks(res.data);
-    } catch {
-      setTasks([]);
-    }
-  };
+  }, [socket, projectId, user?.name, dispatch, tasks]);
 
   const handleDragStart = (event) => {
     setActiveTask(tasks.find(task => task._id === event.active.id));
@@ -155,15 +117,13 @@ const KanbanBoard = ({ projectId }) => {
     const newStatus = over.id;
     if (draggedTask.status === newStatus) return;
 
+    const originalStatus = draggedTask.status;
+    dispatch(optimisticUpdateStatus({ taskId: draggedTask._id, newStatus }));
+
     try {
-      setTasks(prev => prev.map(t =>
-        t._id === draggedTask._id ? { ...t, status: newStatus } : t
-      ));
-      await api.put(`/tasks/${draggedTask._id}`, { status: newStatus });
+      await dispatch(updateTask({ id: draggedTask._id, data: { status: newStatus } })).unwrap();
     } catch {
-      setTasks(prev => prev.map(t =>
-        t._id === draggedTask._id ? { ...t, status: draggedTask.status } : t
-      ));
+      dispatch(revertTaskStatus({ taskId: draggedTask._id, originalStatus }));
     } finally {
       setActiveTask(null);
     }
@@ -171,12 +131,7 @@ const KanbanBoard = ({ projectId }) => {
 
   const handleDeleteTask = async (taskId) => {
     if (!window.confirm('Delete this task?')) return;
-    try {
-      await api.delete(`/tasks/${taskId}`);
-      setTasks(prev => prev.filter(task => task._id !== taskId));
-    } catch {
-      console.error('Failed to delete task');
-    }
+    dispatch(deleteTask(taskId));
   };
 
   const handleEditTask = (task) => {
@@ -186,29 +141,19 @@ const KanbanBoard = ({ projectId }) => {
 
   const updateTaskTitle = async (taskId) => {
     try {
-      await api.put(`/tasks/${taskId}`, { title: editTitle });
-      setTasks(prev => prev.map(t =>
-        t._id === taskId ? { ...t, title: editTitle } : t
-      ));
+      await dispatch(updateTask({ id: taskId, data: { title: editTitle } })).unwrap();
       setEditingTask(null);
       setEditTitle('');
-    } catch (err) {
-      console.error('Failed to update task', err);
+    } catch {
+      // error in slice
     }
   };
 
   const handleAssignTask = async (taskId, assignedTo) => {
-    try {
-      await api.put(`/tasks/${taskId}`, { assignedTo });
-      setTasks(prev => prev.map(t =>
-        t._id === taskId ? {
-          ...t,
-          assignedTo: assignedTo ? teamMembers.find(m => m._id === assignedTo) : null
-        } : t
-      ));
-    } catch (err) {
-      console.error('Failed to assign task', err);
-    }
+    dispatch(updateTask({
+      id: taskId,
+      data: { assignedTo: assignedTo || null }
+    }));
   };
 
   const getTaskCount = (status) => tasks.filter(task => task.status === status).length;
@@ -223,23 +168,28 @@ const KanbanBoard = ({ projectId }) => {
     setOpenCommentsTaskId(prev => prev === taskId ? null : taskId);
   };
 
-  // Toggle activity panel for a task
   const toggleActivity = (taskId) => {
     setOpenActivityTaskId(prev => prev === taskId ? null : taskId);
   };
 
-  // Toggle subtasks panel for a task
   const toggleSubtasks = (taskId) => {
     setOpenSubtasksTaskId(prev => prev === taskId ? null : taskId);
   };
 
-  const handleSubtaskSummary = useCallback((taskId, total, completed) => {
+  const handleSubtaskSummary = (taskId, total, completed) => {
     setSubtaskSummaries(prev => ({ ...prev, [taskId]: { total, completed } }));
-  }, []);
+  };
+
+  const handleTaskCreated = (newTask) => {
+    const populatedTask = {
+      ...newTask,
+      assignedTo: newTask.assignedTo ? teamMembers.find(m => m._id === newTask.assignedTo) : null,
+    };
+    dispatch({ type: 'tasks/create/fulfilled', payload: populatedTask });
+  };
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="px-5 py-3 border-b border-gray-800/60 bg-gray-950/50 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h1 className="text-lg font-semibold text-white">Board</h1>
         {canCreateTask && (
@@ -273,7 +223,6 @@ const KanbanBoard = ({ projectId }) => {
                 className="min-w-[300px] w-full max-w-xs"
               >
                 <div className="flex flex-col h-full">
-                  {/* Column header */}
                   <div className="flex items-center justify-between px-3 py-3 rounded-t-xl bg-gray-900/80 border border-gray-800/50 border-b-0">
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${status.dotColor}`} />
@@ -297,7 +246,6 @@ const KanbanBoard = ({ projectId }) => {
                           <Draggable key={task._id} id={task._id}>
                             <div className="group p-3 bg-gray-800 rounded-xl border border-gray-700 hover:border-gray-600 transition-colors cursor-grab active:cursor-grabbing">
 
-                              {/* Title row */}
                               <div className="flex items-start gap-2">
                                 <div className="flex-1 min-w-0">
                                   {editingTask?._id === task._id ? (
@@ -319,7 +267,6 @@ const KanbanBoard = ({ projectId }) => {
                                   )}
                                 </div>
 
-                                {/* Action buttons */}
                                 <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                   {canEditTask && (
                                     <button
@@ -340,14 +287,12 @@ const KanbanBoard = ({ projectId }) => {
                                 </div>
                               </div>
 
-                              {/* Description */}
                               {task.description && (
                                 <p className="mt-1.5 text-xs text-gray-400 line-clamp-2">
                                   {task.description}
                                 </p>
                               )}
 
-                              {/* Subtask progress */}
                               {subtaskSummaries[task._id] && (
                                 <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
                                   <FiCheckSquare className="w-3 h-3" />
@@ -355,7 +300,6 @@ const KanbanBoard = ({ projectId }) => {
                                 </div>
                               )}
 
-                              {/* Due date badge */}
                               {task.dueDate && (
                                 <div className="mt-2">
                                   <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded border ${task.dueDate < new Date().toISOString().split('T')[0]
@@ -368,7 +312,6 @@ const KanbanBoard = ({ projectId }) => {
                                 </div>
                               )}
 
-                              {/* Assignee + created date row */}
                               <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
                                 {canEditTask ? (
                                   <select
@@ -396,7 +339,6 @@ const KanbanBoard = ({ projectId }) => {
                                 )}
                               </div>
 
-                              {/* Comments + Activity + Subtasks toggles */}
                               <div className="mt-2 pt-2 border-t border-gray-700 flex gap-2">
                                 <button
                                   type="button"
@@ -481,13 +423,12 @@ const KanbanBoard = ({ projectId }) => {
         </DragOverlay>
       </DndContext>
 
-      {/* Add Task Modal */}
       <AddTaskModal
         isOpen={showAddTaskModal}
         onClose={() => setShowAddTaskModal(false)}
         projectId={projectId}
         teamMembers={teamMembers}
-        onSuccess={(newTask) => setTasks(prev => [...prev, newTask])}
+        onSuccess={handleTaskCreated}
       />
     </div>
   );

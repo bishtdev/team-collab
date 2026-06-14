@@ -1,72 +1,51 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import api from '../services/api';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchComments, createComment } from '../features/tasks/commentsSlice';
 import CommentItem from './CommentItem';
 
-// TaskCommentsPanel
-// Props:
-// - taskId: MongoDB ObjectId of the task to show comments for
-// - initialCommentsPage (optional): starting page for comments (default 1)
-// - pageSize (optional): number of comments per page (default 20)
-// - onCommentAdded (optional): callback triggered after a successful comment add
 const TaskCommentsPanel = ({ taskId, initialCommentsPage = 1, pageSize = 20, onCommentAdded }) => {
-  const [comments, setComments] = useState([]);
+  const dispatch = useDispatch();
+  const commentState = useSelector(state => state.comments[taskId]);
+  const comments = commentState?.items || [];
+  const isLoading = commentState?.isLoading || false;
+  const pagination = commentState?.pagination || { total: 0 };
+
   const [page, setPage] = useState(initialCommentsPage);
-  const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [error, setError] = useState('');
+  const [localError, setLocalError] = useState('');
 
-  // Fetch comments for the given page
-  const fetchComments = useCallback(async (p = 1) => {
-    if (!taskId) return;
-    setIsLoading(true);
-    setError('');
-    try {
-      const res = await api.get(`/tasks/${taskId}/comments?page=${p}&limit=${pageSize}`);
-      const { comments: fetched, pagination } = res.data;
-      // When loading page 1 we replace; otherwise we append older comments to end
-      if (p === 1) {
-        setComments(fetched || []);
-      } else {
-        setComments(prev => [...prev, ...(fetched || [])]);
-      }
-      setTotal(pagination?.total ?? 0);
-      setPage(p);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed toload comments');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [taskId, pageSize]);
+  const fetchPage = useCallback((p) => {
+    dispatch(fetchComments({ taskId, page: p, limit: pageSize }));
+    setPage(p);
+  }, [taskId, dispatch, pageSize]);
 
-  // Initial load
   useEffect(() => {
-    if (taskId) fetchComments(1);
-  }, [taskId]);
+    if (taskId) fetchPage(1);
+  }, [taskId, fetchPage]);
 
-  const canLoadMore = comments.length < total;
+  const canLoadMore = comments.length < pagination.total;
 
   const handleAddComment = async (e) => {
     e.preventDefault();
     const content = newComment?.trim();
     if (!content) return;
     try {
-      // Create comment via API
-      await api.post(`/tasks/${taskId}/comments`, { content });
-      // Refresh to include the new comment at top
+      await dispatch(createComment({ taskId, data: { content } })).unwrap();
       setNewComment('');
-      fetchComments(1);
+      fetchPage(1);
       onCommentAdded?.();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to add comment');
+      setLocalError(typeof err === 'string' ? err : 'Failed to add comment');
     }
   };
+
+  const displayError = localError || commentState?.error;
 
   return (
     <section aria-label="Task Comments" className="bg-gray-900/60 p-4 rounded-xl border border-gray-800/50">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold text-white">Comments</h3>
-        <span className="text-xs text-gray-400">{comments.length} / {total} total</span>
+        <span className="text-xs text-gray-400">{comments.length} / {pagination.total} total</span>
       </div>
 
       <form onSubmit={handleAddComment} className="flex items-start gap-2 mb-3">
@@ -86,7 +65,7 @@ const TaskCommentsPanel = ({ taskId, initialCommentsPage = 1, pageSize = 20, onC
         </button>
       </form>
 
-      {error && <div className="mb-2 text-xs text-red-400">{error}</div>}
+      {displayError && <div className="mb-2 text-xs text-red-400">{displayError}</div>}
 
       <div className="max-h-64 overflow-auto pr-1 scrollbar-thin">
         {isLoading && comments.length === 0 ? (
@@ -102,7 +81,7 @@ const TaskCommentsPanel = ({ taskId, initialCommentsPage = 1, pageSize = 20, onC
         <div className="mt-2 text-right">
           <button
             className="text-xs text-gray-300 hover:text-white"
-            onClick={() => fetchComments(page + 1)}
+            onClick={() => fetchPage(page + 1)}
           >
             Load more
           </button>

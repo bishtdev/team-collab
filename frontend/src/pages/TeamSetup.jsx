@@ -1,115 +1,57 @@
-// pages/TeamSetup.jsx
 import React, { useState, useEffect } from 'react';
-import api from '../services/api';
+import { useSelector, useDispatch } from 'react-redux';
 import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { useNavigate } from 'react-router-dom';
+import { fetchTeams, fetchAllUsers, fetchTeamMembers, setActiveTeam, clearError } from '../features/teams/teamsSlice';
 import CreateTeamModal from '../components/modals/CreateTeamModal';
 import AddUserToTeamModal from '../components/modals/AddUserToTeamModal';
 import { FiUsers, FiPlus, FiArrowRight, FiBriefcase, FiUserPlus } from 'react-icons/fi';
 
 const TeamSetup = () => {
+  const dispatch = useDispatch();
   const { user, refreshUser } = useAuth();
-  const { canManageTeam, canAddTeamMember, role } = usePermissions();
+  const { canAddTeamMember } = usePermissions();
   const navigate = useNavigate();
 
-  const [teams, setTeams] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { items: teams, allUsers, currentMembers, isLoading, isMutating, error } = useSelector(state => state.teams);
 
-  // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
 
-  // For add-user modal
-  const [teamMembers, setTeamMembers] = useState([]);
-  const [allUsers, setAllUsers] = useState([]);
-
-  const loadTeams = async () => {
-    setIsLoading(true);
-    try {
-      const res = await api.get('/teams');
-      setTeams(res.data.teams || []);
-    } catch (err) {
-      console.error('Failed to load teams', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadAllUsers = async () => {
-    try {
-      // Only admins can access the getAllUsers endpoint
-      // For non-admins, we'll use the team members list instead
-      if (role === 'ADMIN') {
-        const res = await api.get('/teams/users/all');
-        setAllUsers(res.data.users || []);
-      } else {
-        setAllUsers([]);
-      }
-    } catch (err) {
-      // Silently fail - user may not have permission
-      setAllUsers([]);
-    }
-  };
-
-  const loadTeamMembers = async (teamId) => {
-    try {
-      const res = await api.get(`/teams/${teamId}/members`);
-      setTeamMembers(res.data || []);
-    } catch (err) {
-      setTeamMembers([]);
-    }
-  };
-
   useEffect(() => {
     if (user) {
-      loadTeams();
-      loadAllUsers();
+      dispatch(fetchTeams());
+      dispatch(fetchAllUsers());
     }
-  }, [user]);
-
-  const handleSetActive = async (teamId) => {
-    try {
-      await api.patch('/teams/select', { teamId });
-
-      // Refresh teams list
-      await loadTeams();
-
-      await refreshUser();
-
-      // Navigate to projects page
-      // Note: We avoid window.location.reload() here because it causes
-      // a full page reload and loses React state. The auth context will
-      // pick up the new teamId on next interaction.
-      navigate('/projects');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to set active team');
-    }
-  };
+  }, [user, dispatch]);
 
   const openAddUserModal = async (team) => {
     setSelectedTeam(team);
-    setError('');
-    await loadTeamMembers(team._id);
+    dispatch(clearError());
+    dispatch(fetchTeamMembers(team._id));
     setShowAddUserModal(true);
   };
 
-  const handleAddUserSuccess = async () => {
-    if (selectedTeam) {
-      await loadTeamMembers(selectedTeam._id);
-    }
-    await loadTeams();
-    await loadAllUsers();
+  const handleSetActive = async (teamId) => {
+    await dispatch(setActiveTeam(teamId)).unwrap();
+    await dispatch(fetchTeams());
+    await refreshUser();
+    navigate('/projects');
   };
 
-  const getRoleBadgeColor = (role) => {
-    switch (role) {
-      case 'ADMIN': return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-      case 'MANAGER': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-      default: return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+  const handleCreateSuccess = () => {
+    dispatch(fetchTeams());
+    dispatch(fetchAllUsers());
+  };
+
+  const handleAddUserSuccess = () => {
+    if (selectedTeam) {
+      dispatch(fetchTeamMembers(selectedTeam._id));
     }
+    dispatch(fetchTeams());
+    dispatch(fetchAllUsers());
   };
 
   if (!user) {
@@ -122,7 +64,6 @@ const TeamSetup = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
-      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-gray-800/60 rounded-xl border border-gray-800/60">
@@ -148,7 +89,6 @@ const TeamSetup = () => {
         </div>
       )}
 
-      {/* Teams list */}
       {isLoading ? (
         <div className="flex justify-center py-20">
           <div className="w-8 h-8 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
@@ -192,7 +132,6 @@ const TeamSetup = () => {
                 </div>
               </div>
 
-              {/* Members preview */}
               <div className="flex items-center gap-2 mb-4">
                 <div className="flex -space-x-2">
                   {(t.members || []).slice(0, 5).map((m, i) => (
@@ -210,7 +149,6 @@ const TeamSetup = () => {
                 </span>
               </div>
 
-              {/* Actions */}
               <div className="flex flex-wrap gap-2">
                 {canAddTeamMember && (
                   <button
@@ -224,7 +162,8 @@ const TeamSetup = () => {
                 {user?.teamId !== t._id && (
                   <button
                     onClick={() => handleSetActive(t._id)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-white text-gray-900 hover:bg-gray-100 rounded-xl transition-colors text-xs font-medium"
+                    disabled={isMutating}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-white text-gray-900 hover:bg-gray-100 rounded-xl transition-colors text-xs font-medium disabled:opacity-50"
                   >
                     <span>Set Active</span>
                     <FiArrowRight className="w-3.5 h-3.5" />
@@ -242,11 +181,10 @@ const TeamSetup = () => {
         </div>
       )}
 
-      {/* Modals */}
       <CreateTeamModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onSuccess={() => { loadTeams(); loadAllUsers(); }}
+        onSuccess={handleCreateSuccess}
       />
 
       <AddUserToTeamModal
@@ -254,7 +192,7 @@ const TeamSetup = () => {
         onClose={() => setShowAddUserModal(false)}
         team={selectedTeam}
         allUsers={allUsers}
-        teamMembers={teamMembers}
+        teamMembers={currentMembers}
         onSuccess={handleAddUserSuccess}
       />
     </div>

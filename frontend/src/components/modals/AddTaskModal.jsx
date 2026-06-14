@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
 import Modal from '../Modal';
-import api from '../../services/api';
+import { createTask } from '../../features/tasks/tasksSlice';
 
 const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess }) => {
+  const dispatch = useDispatch();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
@@ -33,7 +35,7 @@ const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess 
     setError('');
 
     try {
-      const res = await api.post('/tasks', {
+      const result = await dispatch(createTask({
         title,
         description,
         status: 'todo',
@@ -41,18 +43,12 @@ const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess 
         assignedTo: assignedTo || null,
         dueDate,
         priority
-      });
+      })).unwrap();
 
-      // Populate assignedTo for local state
-      const populatedTask = {
-        ...res.data,
-        assignedTo: assignedTo ? teamMembers.find(m => m._id === assignedTo) : null,
-      };
-
-      onSuccess?.(populatedTask);
+      onSuccess?.(result);
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create task.');
+      setError(typeof err === 'string' ? err : 'Failed to create task.');
     } finally {
       setIsSubmitting(false);
     }

@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../Modal';
-import api from '../../services/api';
+import { addUserToTeam } from '../../features/teams/teamsSlice';
 
 const AddUserToTeamModal = ({ isOpen, onClose, team, allUsers = [], teamMembers = [], onSuccess }) => {
-  const [mode, setMode] = useState('existing'); // 'existing' | 'new'
+  const dispatch = useDispatch();
+  const { isMutating, error } = useSelector(state => state.teams);
+
+  const [mode, setMode] = useState('existing');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localError, setLocalError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -16,7 +19,7 @@ const AddUserToTeamModal = ({ isOpen, onClose, team, allUsers = [], teamMembers 
       setSelectedUserId('');
       setNewUserName('');
       setNewUserEmail('');
-      setError('');
+      setLocalError('');
     }
   }, [isOpen]);
 
@@ -26,33 +29,31 @@ const AddUserToTeamModal = ({ isOpen, onClose, team, allUsers = [], teamMembers 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setLocalError('');
 
     if (mode === 'existing' && !selectedUserId) {
-      setError('Please select a user');
+      setLocalError('Please select a user');
       return;
     }
     if (mode === 'new' && (!newUserName.trim() || !newUserEmail.trim())) {
-      setError('Please fill in all fields');
+      setLocalError('Please fill in all fields');
       return;
     }
 
-    setIsSubmitting(true);
+    const payload = mode === 'existing'
+      ? { userId: selectedUserId }
+      : { email: newUserEmail, name: newUserName };
 
     try {
-      const payload = mode === 'existing'
-        ? { userId: selectedUserId }
-        : { email: newUserEmail, name: newUserName };
-
-      await api.post(`/teams/${team._id}/add-user`, payload);
+      await dispatch(addUserToTeam({ teamId: team._id, data: payload })).unwrap();
       onSuccess?.();
       onClose();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to add user');
-    } finally {
-      setIsSubmitting(false);
+    } catch {
+      // error handled by slice
     }
   };
+
+  const displayError = localError || error;
 
   return (
     <Modal
@@ -62,17 +63,16 @@ const AddUserToTeamModal = ({ isOpen, onClose, team, allUsers = [], teamMembers 
       subtitle="Add an existing user or create a new one"
       size="md"
     >
-      {error && (
+      {displayError && (
         <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
-          {error}
+          {displayError}
         </div>
       )}
 
-      {/* Mode tabs */}
       <div className="flex p-1 bg-gray-800/60 rounded-xl mb-4">
         <button
           type="button"
-          onClick={() => { setMode('existing'); setError(''); }}
+          onClick={() => { setMode('existing'); setLocalError(''); }}
           className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
             mode === 'existing'
               ? 'bg-gray-700 text-white shadow'
@@ -83,7 +83,7 @@ const AddUserToTeamModal = ({ isOpen, onClose, team, allUsers = [], teamMembers 
         </button>
         <button
           type="button"
-          onClick={() => { setMode('new'); setError(''); }}
+          onClick={() => { setMode('new'); setLocalError(''); }}
           className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
             mode === 'new'
               ? 'bg-gray-700 text-white shadow'
@@ -140,7 +140,6 @@ const AddUserToTeamModal = ({ isOpen, onClose, team, allUsers = [], teamMembers 
           </>
         )}
 
-        {/* Current members preview */}
         {teamMembers.length > 0 && (
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-1.5">
@@ -170,10 +169,10 @@ const AddUserToTeamModal = ({ isOpen, onClose, team, allUsers = [], teamMembers 
           </button>
           <button
             type="submit"
-            disabled={isSubmitting || (mode === 'existing' && availableUsers.length === 0)}
+            disabled={isMutating || (mode === 'existing' && availableUsers.length === 0)}
             className="px-5 py-2.5 bg-white text-gray-900 font-medium rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
           >
-            {isSubmitting ? (
+            {isMutating ? (
               <>
                 <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin" />
                 <span>Adding...</span>

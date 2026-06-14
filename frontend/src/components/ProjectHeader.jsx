@@ -1,28 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import api from '../services/api';
+import React, { useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { Link } from 'react-router-dom';
+import { fetchProjectById, clearCurrentProject } from '../features/projects/projectsSlice';
 import { FiArrowLeft, FiLoader } from 'react-icons/fi';
 
 const ProjectHeader = ({ projectId }) => {
-  const [project, setProject] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
+  const { currentProject: project, isLoading } = useSelector(state => state.projects);
 
   useEffect(() => {
-    const fetchProject = async () => {
-      try {
-        const res = await api.get(`/projects/${projectId}`);
-        setProject(res.data);
-      } catch (err) {
-        console.error('Failed to fetch project', err);
-      } finally {
-        setLoading(false);
-      }
+    if (projectId) {
+      dispatch(fetchProjectById(projectId));
+    }
+    return () => {
+      dispatch(clearCurrentProject());
     };
+  }, [projectId, dispatch]);
 
-    if (projectId) fetchProject();
-  }, [projectId]);
-
-  if (loading) {
+  if (isLoading || !project) {
     return (
       <div className="px-5 py-3 border-b border-gray-800/60 bg-gray-950/50 flex items-center gap-2">
         <FiLoader className="animate-spin text-gray-600" />
