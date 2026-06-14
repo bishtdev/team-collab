@@ -19,10 +19,14 @@ const userRoutes = require('./routes/userRoutes'); // New: separated user routes
 const commentRoutes = require('./routes/commentRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const subtaskRoutes = require('./routes/subtaskRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 // Model imports
 const Message = require('./models/Message');
 const User = require('./models/User');
+
+// Service imports
+const socketEmitter = require('./services/socketEmitter');
 
 // Middleware imports
 const verifyFirebaseToken = require('./middlewares/verifyFirebaseToken');
@@ -147,6 +151,7 @@ app.use('/api/tasks', verifyFirebaseToken, authenticate, subtaskRoutes);
 app.use('/api/messages', verifyFirebaseToken, authenticate, messageRoutes);
 app.use('/api/teams', verifyFirebaseToken, authenticate, teamRoutes);
 app.use('/api/users', verifyFirebaseToken, authenticate, userRoutes); // Separated user routes
+app.use('/api/notifications', verifyFirebaseToken, authenticate, notificationRoutes);
 
 // ---------------------------------------------------------------------------
 // HTTP Server + Socket.io Setup
@@ -162,6 +167,9 @@ const io = socketIO(server, {
     credentials: true
   },
 });
+
+// Initialize socketEmitter with the io instance so services can emit events
+socketEmitter.init(io);
 
 // ---------------------------------------------------------------------------
 // Socket.io Authentication Middleware
@@ -203,6 +211,9 @@ io.use(async (socket, next) => {
 // ---------------------------------------------------------------------------
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id, 'userId:', socket.user._id);
+
+  // Auto-join the user to their personal room for direct notifications
+  socket.join(socket.user._id.toString());
 
   // Join a team chat room
   // Only allow users to join rooms for teams they belong to

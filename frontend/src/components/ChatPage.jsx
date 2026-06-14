@@ -14,18 +14,18 @@
 // 3. User joins their team's chat room
 // 4. Messages are sent with senderId derived from authenticated user
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { connectSocket, disconnectSocket } from '../services/socket';
+import { useSocket } from '../context/SocketContext';
 import api from '../services/api';
 import { FiSend, FiMessageCircle } from 'react-icons/fi';
 
 const ChatPage = ({ teamId, currentUser }) => {
+  const { socket } = useSocket();
   const [message, setMessage] = useState('');
   const [chat, setChat] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [typingUsers, setTypingUsers] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, hasMore: true, total: 0 });
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [socket, setSocket] = useState(null);
 
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
@@ -39,69 +39,12 @@ const ChatPage = ({ teamId, currentUser }) => {
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Socket Connection & Message Loading
-  // This effect runs when teamId or currentUser changes.
-  // It connects the socket, joins the team room, and loads initial messages.
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (!teamId || !currentUser) return;
-
-    let activeSocket = null;
-
-    const initializeChat = async () => {
-      // Connect socket with Firebase authentication
-      // The server will verify the token before allowing connection
-      activeSocket = await connectSocket();
-      if (!activeSocket) return;
-
-      setSocket(activeSocket);
-
-      // Join the team's chat room
-      activeSocket.emit('joinTeamRoom', teamId);
-
-      // Listen for new messages from other users
-      activeSocket.on('receiveMessage', (newMsg) => {
-        setChat((prev) => [...prev, newMsg]);
-      });
-
-      // Listen for typing indicators
-      activeSocket.on('userTyping', ({ userId, userName }) => {
-        if (userId !== currentUser?._id) {
-          setTypingUsers((prev) => {
-            if (prev.find(u => u.userId === userId)) return prev;
-            return [...prev, { userId, userName }];
-          });
-          // Auto-remove typing indicator after 3 seconds
-          setTimeout(() => {
-            setTypingUsers((prev) => prev.filter(u => u.userId !== userId));
-          }, 3000);
-        }
-      });
-
-      // Load initial messages (first page)
-      await fetchMessages(1);
-    };
-
-    initializeChat();
-
-    // Cleanup: disconnect socket when component unmounts or dependencies change
-    return () => {
-      if (activeSocket) {
-        activeSocket.off('receiveMessage');
-        activeSocket.off('userTyping');
-        activeSocket.emit('leaveRoom', teamId);
-        disconnectSocket();
-      }
-    };
-  }, [teamId, currentUser?._id]);
-
-  // ---------------------------------------------------------------------------
   // Fetch Messages with Pagination
   // Loads messages from the server with pagination support.
   // - page 1: Initial load (replaces chat)
   // - page > 1: Load older messages (prepends to chat)
   // ---------------------------------------------------------------------------
-  const fetchMessages = async (page = 1) => {
+  const fetchMessages = useCallback(async (page = 1) => {
     if (page === 1) {
       setIsLoading(true);
     } else {
@@ -129,7 +72,51 @@ const ChatPage = ({ teamId, currentUser }) => {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  };
+  }, [teamId, scrollToBottom]);
+
+  // ---------------------------------------------------------------------------
+  // Socket Connection & Message Loading
+  // This effect runs when teamId or currentUser changes.
+  // It joins/leaves the team chat room and listens for messages.
+  // The socket connection itself is managed by SocketContext.
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!teamId || !currentUser || !socket) return;
+
+    // Join the team's chat room
+    socket.emit('joinTeamRoom', teamId);
+
+    // Listen for new messages from other users
+    const handleReceiveMessage = (newMsg) => {
+      setChat((prev) => [...prev, newMsg]);
+    };
+
+    // Listen for typing indicators
+    const handleUserTyping = ({ userId, userName }) => {
+      if (userId !== currentUser?._id) {
+        setTypingUsers((prev) => {
+          if (prev.find(u => u.userId === userId)) return prev;
+          return [...prev, { userId, userName }];
+        });
+        setTimeout(() => {
+          setTypingUsers((prev) => prev.filter(u => u.userId !== userId));
+        }, 3000);
+      }
+    };
+
+    socket.on('receiveMessage', handleReceiveMessage);
+    socket.on('userTyping', handleUserTyping);
+
+    // Load initial messages (first page)
+    fetchMessages(1);
+
+    // Cleanup: remove listeners and leave room when unmounting or deps change
+    return () => {
+      socket.off('receiveMessage', handleReceiveMessage);
+      socket.off('userTyping', handleUserTyping);
+      socket.emit('leaveRoom', teamId);
+    };
+  }, [teamId, currentUser, currentUser?._id, socket, fetchMessages]);
 
   // ---------------------------------------------------------------------------
   // Load More Messages (Infinite Scroll)
@@ -145,7 +132,7 @@ const ChatPage = ({ teamId, currentUser }) => {
       const nextPage = pagination.page + 1;
       fetchMessages(nextPage);
     }
-  }, [isLoadingMore, pagination, teamId]);
+  }, [isLoadingMore, pagination, fetchMessages]);
 
   // ---------------------------------------------------------------------------
   // Auto-scroll on New Messages

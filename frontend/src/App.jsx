@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import AppLayout from './layouts/AppLayout';
 import AuthLayout from './layouts/AuthLayout';
 import PublicRoute from './components/PublicRoute';
@@ -22,6 +23,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <SocketProvider>
         <Routes>
           {/* Public routes — Auth layout (no sidebar) */}
           <Route path="/" element={<Navigate to="/login" replace />} />
@@ -89,6 +91,7 @@ function App() {
           />
         </Routes>
         <Toaster />
+        </SocketProvider>
       </BrowserRouter>
     </AuthProvider>
   );

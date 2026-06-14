@@ -4,6 +4,7 @@ const Project = require('../models/Project');
 const Activity = require('../models/Activity');
 const Subtask = require('../models/Subtask');
 const Comment = require('../models/Comment');
+const notificationService = require('../services/notificationService');
 
 // ---------------------------------------------------------------------------
 // Helper: Verify project belongs to user's team
@@ -126,6 +127,8 @@ exports.createTask = async (req, res) => {
     const populatedTask = await Task.findById(newTask._id)
       .populate('assignedTo', 'name email');
 
+    notificationService.notifyTaskCreated(populatedTask, req.user, req.user.teamId);
+
     res.status(201).json(populatedTask);
   } catch (err) {
     console.error('Task creation error:', err);
@@ -155,9 +158,11 @@ exports.updateTask = async (req, res) => {
     // Build update object - only include fields that were provided
     const update = {};
     const activitiesToCreate = [];
+    const changedFields = [];
 
     if (status !== undefined && status !== task.status) {
       update.status = status;
+      changedFields.push('status');
       activitiesToCreate.push({
         taskId: task._id,
         actorId: req.user._id,
@@ -168,6 +173,7 @@ exports.updateTask = async (req, res) => {
 
     if (assignedTo !== undefined && assignedTo !== (task.assignedTo?.toString() || null)) {
       update.assignedTo = assignedTo || null;
+      changedFields.push('assignedTo');
       activitiesToCreate.push({
         taskId: task._id,
         actorId: req.user._id,
@@ -178,6 +184,7 @@ exports.updateTask = async (req, res) => {
 
     if (title !== undefined && title !== task.title) {
       update.title = title;
+      changedFields.push('title');
       activitiesToCreate.push({
         taskId: task._id,
         actorId: req.user._id,
@@ -188,6 +195,7 @@ exports.updateTask = async (req, res) => {
 
     if (description !== undefined && description !== task.description) {
       update.description = description;
+      changedFields.push('description');
       activitiesToCreate.push({
         taskId: task._id,
         actorId: req.user._id,
@@ -198,6 +206,7 @@ exports.updateTask = async (req, res) => {
 
     if (dueDate !== undefined && dueDate !== task.dueDate?.toISOString?.()) {
       update.dueDate = dueDate;
+      changedFields.push('dueDate');
       activitiesToCreate.push({
         taskId: task._id,
         actorId: req.user._id,
@@ -208,6 +217,7 @@ exports.updateTask = async (req, res) => {
 
     if (priority !== undefined && priority !== task.priority) {
       update.priority = priority;
+      changedFields.push('priority');
       activitiesToCreate.push({
         taskId: task._id,
         actorId: req.user._id,
@@ -226,6 +236,17 @@ exports.updateTask = async (req, res) => {
     // Create activity records for each change
     if (activitiesToCreate.length > 0) {
       await Activity.insertMany(activitiesToCreate);
+    }
+
+    // Send real-time notifications
+    const oldAssigneeId = task.assignedTo?.toString();
+    const newAssigneeId = update.assignedTo?.toString();
+    if (newAssigneeId !== undefined && newAssigneeId !== oldAssigneeId) {
+      notificationService.notifyAssigneeChanged(updated, newAssigneeId || updated.assignedTo?._id, req.user, req.user.teamId);
+    }
+    const otherChanges = changedFields.filter(f => f !== 'assignedTo');
+    if (otherChanges.length > 0) {
+      notificationService.notifyTaskUpdated(updated, otherChanges, req.user, req.user.teamId);
     }
 
     res.json(updated);
@@ -251,6 +272,9 @@ exports.deleteTask = async (req, res) => {
     if (access.error) {
       return res.status(access.status).json({ error: access.error });
     }
+
+    // Notify before cleanup so we still have the task data
+    notificationService.notifyTaskDeleted(task, req.user, req.user.teamId);
 
     // Delete related subtasks, comments, activities first, then the task
     // Order matters: clean up children before parent so a partial failure preserves the task

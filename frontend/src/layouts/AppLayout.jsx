@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { NavLink } from 'react-router-dom';
-import { FiHome, FiMessageSquare, FiUsers, FiFolder, FiLogOut, FiMenu, FiX } from 'react-icons/fi';
+import { FiHome, FiMessageSquare, FiUsers, FiFolder, FiLogOut, FiMenu, FiX, FiBell } from 'react-icons/fi';
+import { useSocket } from '../context/SocketContext';
+import NotificationPanel from '../components/NotificationPanel';
 
 const AppLayout = ({ children }) => {
   const { user, logout } = useAuth();
+  const { unreadCount } = useSocket();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const sidebarItems = [
     { to: '/projects', label: 'Projects', icon: <FiFolder className="w-5 h-5" /> },
@@ -49,6 +53,23 @@ const AppLayout = ({ children }) => {
         <div className="flex items-center gap-3">
           {user && (
             <div className="flex items-center gap-2.5">
+              {/* Notification bell */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors relative"
+                  title="Notifications"
+                >
+                  <FiBell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center leading-none min-w-[18px] min-h-[18px]">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                <NotificationPanel isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
+              </div>
+
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm font-semibold text-white shadow-lg shadow-indigo-500/20">
                 {user.name?.charAt(0)?.toUpperCase()}
               </div>

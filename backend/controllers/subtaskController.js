@@ -1,6 +1,7 @@
 const Subtask = require('../models/Subtask');
 const Task = require('../models/Task');
 const Activity = require('../models/Activity');
+const notificationService = require('../services/notificationService');
 
 const verifyTaskAccess = async (taskId, userTeamId) => {
   const task = await Task.findById(taskId).populate({ path: 'projectId', select: 'teamId' });
@@ -123,6 +124,10 @@ exports.updateSubtask = async (req, res) => {
 
     if (activitiesToCreate.length > 0) {
       await Activity.insertMany(activitiesToCreate);
+    }
+
+    if (completed !== undefined && completed !== existing.completed) {
+      notificationService.notifySubtaskChanged(updated, access.task, req.user, req.user.teamId);
     }
 
     res.json(updated);

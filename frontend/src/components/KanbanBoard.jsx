@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import api from '../services/api';
 import {
   DndContext,
@@ -20,6 +20,9 @@ import TaskCommentsPanel from './TaskCommentsPanel';
 import ActivityFeedPanel from './ActivityFeedPanel';
 import SubtasksPanel from './SubtasksPanel';
 import { usePermissions } from '../hooks/usePermissions';
+import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { toast } from 'sonner';
 import { FiPlus, FiMoreVertical, FiUser, FiCalendar, FiEdit2, FiTrash2, FiMessageSquare, FiActivity, FiCheckSquare } from 'react-icons/fi';
 
 const KanbanBoard = ({ projectId }) => {
@@ -36,6 +39,8 @@ const KanbanBoard = ({ projectId }) => {
   const [subtaskSummaries, setSubtaskSummaries] = useState({});
 
   const { canCreateTask, canEditTask, canDeleteTask } = usePermissions();
+  const { user } = useAuth();
+  const { socket } = useSocket();
 
   const statusConfig = useMemo(() => ({
     todo: { title: 'To Do', dotColor: 'bg-gray-400' },
@@ -54,7 +59,7 @@ const KanbanBoard = ({ projectId }) => {
       try {
         const res = await api.get('/users/team');
         setTeamMembers(res.data.members || []);
-      } catch (err) {
+      } catch {
         setTeamMembers([]);
       }
     };
@@ -68,7 +73,7 @@ const KanbanBoard = ({ projectId }) => {
       try {
         const res = await api.get(`/tasks?projectId=${projectId}`);
         setTasks(res.data);
-      } catch (err) {
+      } catch {
         setTasks([]);
       } finally {
         setIsLoading(false);
@@ -76,6 +81,64 @@ const KanbanBoard = ({ projectId }) => {
     };
     fetchTasks();
   }, [projectId]);
+
+  // Real-time updates via socket
+  useEffect(() => {
+    if (!socket || !projectId) return;
+
+    const handleTaskCreated = ({ projectId: pid }) => {
+      if (pid === projectId) {
+        fetchTasksRef.current();
+      }
+    };
+
+    const handleTaskUpdated = ({ projectId: pid }) => {
+      if (pid === projectId) {
+        fetchTasksRef.current();
+      }
+    };
+
+    const handleTaskDeleted = ({ taskId, projectId: pid }) => {
+      if (pid === projectId) {
+        setTasks(prev => prev.filter(t => t._id !== taskId));
+      }
+    };
+
+    const handleCommentAdded = ({ taskId, projectId: pid, actorName }) => {
+      if (pid === projectId && actorName !== user?.name) {
+        const task = tasksRef.current.find(t => t._id === taskId);
+        if (task) {
+          toast.info(`${actorName} commented on "${task.title}"`);
+        }
+      }
+    };
+    socket.on('task:created', handleTaskCreated);
+    socket.on('task:updated', handleTaskUpdated);
+    socket.on('task:deleted', handleTaskDeleted);
+    socket.on('comment:added', handleCommentAdded);
+
+    return () => {
+      socket.off('task:created', handleTaskCreated);
+      socket.off('task:updated', handleTaskUpdated);
+      socket.off('task:deleted', handleTaskDeleted);
+      socket.off('comment:added', handleCommentAdded);
+    };
+  }, [socket, projectId, user?.name]);
+
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+
+  // Ref to allow socket handler to refetch latest tasks
+  const fetchTasksRef = useRef();
+  fetchTasksRef.current = async () => {
+    if (!projectId) return;
+    try {
+      const res = await api.get(`/tasks?projectId=${projectId}`);
+      setTasks(res.data);
+    } catch {
+      setTasks([]);
+    }
+  };
 
   const handleDragStart = (event) => {
     setActiveTask(tasks.find(task => task._id === event.active.id));
@@ -97,7 +160,7 @@ const KanbanBoard = ({ projectId }) => {
         t._id === draggedTask._id ? { ...t, status: newStatus } : t
       ));
       await api.put(`/tasks/${draggedTask._id}`, { status: newStatus });
-    } catch (err) {
+    } catch {
       setTasks(prev => prev.map(t =>
         t._id === draggedTask._id ? { ...t, status: draggedTask.status } : t
       ));
@@ -111,8 +174,8 @@ const KanbanBoard = ({ projectId }) => {
     try {
       await api.delete(`/tasks/${taskId}`);
       setTasks(prev => prev.filter(task => task._id !== taskId));
-    } catch (err) {
-      console.error('Failed to delete task', err);
+    } catch {
+      console.error('Failed to delete task');
     }
   };
 

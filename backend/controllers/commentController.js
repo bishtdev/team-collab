@@ -9,6 +9,7 @@ const Comment = require('../models/Comment');
 const Task = require('../models/Task');
 const Activity = require('../models/Activity');
 const { default: mongoose } = require('mongoose');
+const notificationService = require('../services/notificationService');
 
 // Create a new comment for a task
 exports.createComment = async (req, res) => {
@@ -54,6 +55,9 @@ exports.createComment = async (req, res) => {
     });
 
     const populated = await Comment.findById(newComment._id).populate('authorId', 'name email');
+
+    notificationService.notifyCommentAdded(populated, task, req.user, req.user.teamId);
+
     res.status(201).json(populated);
   } catch (err) {
     console.error('Comment creation error:', err);
