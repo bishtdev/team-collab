@@ -102,10 +102,16 @@ exports.notifyTaskDeleted = async (task, actor, teamId) => {
 };
 
 exports.notifyCommentAdded = async (comment, task, actor, teamId) => {
-  if (!task.assignedTo) return;
-  if (task.assignedTo.toString() === actor._id.toString()) return;
-
   const actorName = actor.name || actor.email;
+  const actorId = actor._id.toString();
+
+  // Collect potential recipients, excluding the commenter
+  const recipientIds = new Set();
+  if (task.assignedTo) recipientIds.add(task.assignedTo.toString());
+  if (task.createdBy) recipientIds.add(task.createdBy.toString());
+  recipientIds.delete(actorId);
+
+  if (recipientIds.size === 0) return;
 
   socketEmitter.emitToTeam(teamId, 'comment:added', {
     taskId: task._id,
@@ -114,15 +120,17 @@ exports.notifyCommentAdded = async (comment, task, actor, teamId) => {
     actorName
   });
 
-  await createNotification({
-    userId: task.assignedTo,
-    type: 'comment_added',
-    title: 'New Comment',
-    message: `${actorName} commented on "${task.title}"`,
-    taskId: task._id,
-    projectId: task.projectId,
-    actorId: actor._id
-  });
+  for (const userId of recipientIds) {
+    await createNotification({
+      userId,
+      type: 'comment_added',
+      title: 'New Comment',
+      message: `${actorName} commented on "${task.title}"`,
+      taskId: task._id,
+      projectId: task.projectId,
+      actorId: actor._id
+    });
+  }
 };
 
 exports.notifySubtaskChanged = async (subtask, task, actor, teamId) => {
