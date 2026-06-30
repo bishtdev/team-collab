@@ -7,7 +7,7 @@ const activitySchema = new mongoose.Schema({
   taskId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Task',
-    required: true
+    required: false // Optional: team-level audit events (role_change, etc.) have no taskId
   },
   actorId: {
     type: mongoose.Schema.Types.ObjectId,

@@ -2,83 +2,48 @@
 // Handles user synchronization between Firebase and our MongoDB.
 // When a user signs up or logs in via Firebase, this route ensures
 // their data exists in our database.
+//
+// SECURITY: role and teamId are NEVER accepted from the client.
+// - role is managed server-side via team membership (see teamController)
+// - teamId is only set via PATCH /api/teams/select (with membership verification)
 const express = require('express');
 const router = express.Router();
 const verifyFirebaseToken = require('../middlewares/verifyFirebaseToken');
 const User = require('../models/User');
 
-// Valid roles in the system
-const VALID_ROLES = ['ADMIN', 'MANAGER', 'MEMBER'];
-
 // POST /api/auth/sync
-// Syncs a Firebase user with our local database.
-// - If user doesn't exist: creates a new user record
-// - If user exists: updates their info (name, role, teamId)
-// This runs on every login/signup to keep data in sync.
+// Syncs a Firebase user with our local database using atomic upsert.
+// Only `name` is accepted from the client body; role and teamId are
+// server-authoritative and never writable from this endpoint.
 router.post('/sync', verifyFirebaseToken, async (req, res) => {
   try {
-    let { name, role, teamId } = req.body;
+    const { name } = req.body; // Only name is client-provided
     const { email, name: firebaseName } = req.firebaseUser;
 
-    // Normalize role: convert to uppercase and validate
-    // If invalid role provided, default to MEMBER
-    if (role && typeof role === 'string') {
-      role = role.toUpperCase();
-      if (!VALID_ROLES.includes(role)) {
-        role = 'MEMBER';
-      }
+    // Atomic upsert: $setOnInsert for defaults (new users), $set for updates.
+    // Never put the same field in both $setOnInsert and $set — that causes a conflict.
+    const setOnInsert = { email, role: 'MEMBER' };
+    const setUpdates = {};
+
+    if (name) {
+      // Name provided by client: apply as update (existing users get it too)
+      setUpdates.name = name;
     } else {
-      // No role provided - will preserve existing role for existing users
-      // or default to MEMBER for new users
-      role = undefined;
+      // No name provided: set default only for new users
+      setOnInsert.name = firebaseName || 'Unnamed';
     }
 
-    // Check if user already exists in our database
-    let user = await User.findOne({ email });
+    const user = await User.findOneAndUpdate(
+      { email },
+      {
+        $setOnInsert: setOnInsert,
+        ...(Object.keys(setUpdates).length > 0 ? { $set: setUpdates } : {}),
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
 
-    if (!user) {
-      // -----------------------------------------------------------------
-      // New User Creation
-      // Use try-catch around create to handle race conditions:
-      // If two requests arrive simultaneously for the same email,
-      // one will succeed and the other will hit the unique constraint.
-      // -----------------------------------------------------------------
-      try {
-        user = await User.create({
-          name: name || firebaseName || 'Unnamed',
-          email,
-          role: role || 'MEMBER',
-          teamId: teamId || null,
-        });
-        return res.status(201).json(user);
-      } catch (createErr) {
-        // Handle duplicate key error from race condition
-        // If another request created the user between our findOne and create,
-        // fetch the existing user and return it
-        if (createErr.code === 11000) {
-          user = await User.findOne({ email });
-          if (!user) {
-            // Extremely unlikely edge case - re-throw
-            throw createErr;
-          }
-          // Fall through to return the existing user
-        } else {
-          throw createErr;
-        }
-      }
-    } else {
-      // -----------------------------------------------------------------
-      // Existing User Update
-      // Only update fields that were explicitly provided.
-      // This preserves existing values when the client sends empty body
-      // (which happens on re-login via onAuthStateChanged).
-      // -----------------------------------------------------------------
-      if (name) user.name = name;
-      if (role) user.role = role; // Preserves existing role if none sent
-      if (teamId !== undefined && teamId !== null) user.teamId = teamId;
-      await user.save();
-      return res.status(200).json(user);
-    }
+    const statusCode = user.createdAt?.getTime() === user.updatedAt?.getTime() ? 201 : 200;
+    return res.status(statusCode).json(user);
   } catch (err) {
     console.error('User sync error:', err);
     res.status(500).json({ error: 'User sync failed', details: err.message });

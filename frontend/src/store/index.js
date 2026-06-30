@@ -4,7 +4,6 @@ import tasksReducer from '../features/tasks/tasksSlice';
 import teamsReducer from '../features/teams/teamsSlice';
 import chatReducer from '../features/chat/chatSlice';
 import notificationsReducer from '../features/notifications/notificationsSlice';
-import authReducer from '../features/auth/authSlice';
 import uiReducer from '../features/ui/uiSlice';
 import subtasksReducer from '../features/tasks/subtasksSlice';
 import commentsReducer from '../features/tasks/commentsSlice';
@@ -17,7 +16,6 @@ export const store = configureStore({
     teams: teamsReducer,
     chat: chatReducer,
     notifications: notificationsReducer,
-    auth: authReducer,
     ui: uiReducer,
     subtasks: subtasksReducer,
     comments: commentsReducer,

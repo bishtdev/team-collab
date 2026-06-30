@@ -113,6 +113,12 @@ const KanbanBoard = ({ projectId }) => {
       return;
     }
 
+    // Guard: only users with edit:task permission can drag tasks between columns
+    if (!canEditTask) {
+      setActiveTask(null);
+      return;
+    }
+
     const draggedTask = tasks.find(t => t._id === active.id);
     const newStatus = over.id;
     if (draggedTask.status === newStatus) return;

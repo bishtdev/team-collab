@@ -20,6 +20,11 @@ router.get('/:teamId', async (req, res) => {
   try {
     const { teamId } = req.params;
 
+    // SECURITY: only allow reading messages from the user's active team
+    if (!req.user.teamId || req.user.teamId.toString() !== teamId) {
+      return res.status(403).json({ error: 'Access denied. You can only read messages from your active team.' });
+    }
+
     // Parse pagination parameters with defaults and bounds
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));

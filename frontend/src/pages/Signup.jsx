@@ -24,7 +24,7 @@ const Signup = () => {
 
     setIsLoading(true);
     try {
-      await signup(name, email, password, 'MEMBER');
+      await signup(name, email, password);
       navigate('/setup-team');
     } catch (err) {
       setError(err.message || 'Signup failed. Please try again.');

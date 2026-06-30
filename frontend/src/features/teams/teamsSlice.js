@@ -47,6 +47,33 @@ export const addUserToTeam = createAsyncThunk('teams/addUser', async ({ teamId, 
   }
 });
 
+export const changeMemberRole = createAsyncThunk('teams/changeRole', async ({ teamId, userId, role }, { rejectWithValue }) => {
+  try {
+    await teamService.changeMemberRole(teamId, userId, role);
+    return { teamId, userId, role };
+  } catch (err) {
+    return rejectWithValue(extractError(err));
+  }
+});
+
+export const removeMember = createAsyncThunk('teams/removeMember', async ({ teamId, userId }, { rejectWithValue }) => {
+  try {
+    await teamService.removeMember(teamId, userId);
+    return { teamId, userId };
+  } catch (err) {
+    return rejectWithValue(extractError(err));
+  }
+});
+
+export const transferOwnership = createAsyncThunk('teams/transferOwnership', async ({ teamId, newAdminId }, { rejectWithValue }) => {
+  try {
+    await teamService.transferOwnership(teamId, newAdminId);
+    return { teamId, newAdminId };
+  } catch (err) {
+    return rejectWithValue(extractError(err));
+  }
+});
+
 export const fetchAllUsers = createAsyncThunk('teams/fetchAllUsers', async (_, { rejectWithValue }) => {
   try {
     const res = await teamService.fetchAllUsers();

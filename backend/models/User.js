@@ -1,12 +1,15 @@
 // models/User.js
+// User model. The `role` field is a CACHED copy of the user's role in their
+// active team (stored authoritatively in Team.members[].role).
+// Updated on createTeam, setActiveTeam, and via socket-triggered refreshUser.
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true, // Creates a unique index automatically
-    lowercase: true, // Normalize email to lowercase
+    unique: true,
+    lowercase: true,
     trim: true
   },
   name: {
@@ -25,14 +28,7 @@ const userSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
-// ---------------------------------------------------------------------------
 // Database Indexes
-// These indexes speed up common query patterns:
-// - teamId: Used to find all users in a team (getTeamMembers, /users/team)
-// - email + unique: Already created by the unique constraint, used for auth lookups
-// - role: Used for role-based filtering
-// ---------------------------------------------------------------------------
-userSchema.index({ teamId: 1 }); // Fast lookup of users by team
-userSchema.index({ role: 1 }); // Fast filtering by role
+userSchema.index({ teamId: 1 });
 
 module.exports = mongoose.model('User', userSchema);

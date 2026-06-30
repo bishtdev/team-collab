@@ -6,18 +6,19 @@ import { useNavigate } from 'react-router-dom';
 import { fetchTeams, fetchAllUsers, fetchTeamMembers, setActiveTeam, clearError } from '../features/teams/teamsSlice';
 import CreateTeamModal from '../components/modals/CreateTeamModal';
 import AddUserToTeamModal from '../components/modals/AddUserToTeamModal';
-import { FiUsers, FiPlus, FiArrowRight, FiBriefcase, FiUserPlus } from 'react-icons/fi';
+import ChangeRoleModal from '../components/modals/ChangeRoleModal';
+import { FiUsers, FiPlus, FiArrowRight, FiBriefcase, FiUserPlus, FiSettings } from 'react-icons/fi';
 
 const TeamSetup = () => {
   const dispatch = useDispatch();
   const { user, refreshUser } = useAuth();
-  const { canAddTeamMember } = usePermissions();
+  const { canAssignRole } = usePermissions();
   const navigate = useNavigate();
-
   const { items: teams, allUsers, currentMembers, isLoading, isMutating, error } = useSelector(state => state.teams);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
 
   useEffect(() => {
@@ -32,6 +33,13 @@ const TeamSetup = () => {
     dispatch(clearError());
     dispatch(fetchTeamMembers(team._id));
     setShowAddUserModal(true);
+  };
+
+  const openRoleModal = async (team) => {
+    setSelectedTeam(team);
+    dispatch(clearError());
+    dispatch(fetchTeamMembers(team._id));
+    setShowRoleModal(true);
   };
 
   const handleSetActive = async (teamId) => {
@@ -140,7 +148,7 @@ const TeamSetup = () => {
                       className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-[10px] font-semibold text-white border-2 border-gray-900"
                       title={m.name}
                     >
-                      {m.name?.charAt(0)?.toUpperCase() || '?'}
+                      {m.userId.name?.charAt(0)?.toUpperCase() || '?'}
                     </div>
                   ))}
                 </div>
@@ -150,13 +158,22 @@ const TeamSetup = () => {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {canAddTeamMember && (
+                {canAssignRole && (
                   <button
                     onClick={() => openAddUserModal(t)}
                     className="flex items-center gap-1.5 px-3 py-2 bg-gray-800/80 hover:bg-gray-800 text-gray-400 hover:text-white rounded-xl transition-colors text-xs font-medium"
                   >
                     <FiUserPlus className="w-3.5 h-3.5" />
                     <span>Add User</span>
+                  </button>
+                )}
+                {canAssignRole && (
+                  <button
+                    onClick={() => openRoleModal(t)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-gray-800/80 hover:bg-gray-800 text-gray-400 hover:text-white rounded-xl transition-colors text-xs font-medium"
+                  >
+                    <FiSettings className="w-3.5 h-3.5" />
+                    <span>Manage</span>
                   </button>
                 )}
                 {user?.teamId !== t._id && (
@@ -194,6 +211,19 @@ const TeamSetup = () => {
         allUsers={allUsers}
         teamMembers={currentMembers}
         onSuccess={handleAddUserSuccess}
+      />
+
+      <ChangeRoleModal
+        isOpen={showRoleModal}
+        onClose={() => setShowRoleModal(false)}
+        team={selectedTeam}
+        members={currentMembers}
+        onSuccess={() => {
+          if (selectedTeam) {
+            dispatch(fetchTeamMembers(selectedTeam._id));
+            dispatch(fetchTeams());
+          }
+        }}
       />
     </div>
   );
