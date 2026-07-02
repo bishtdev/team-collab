@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { NavLink } from 'react-router-dom';
 import { FiHome, FiMessageSquare, FiUsers, FiFolder, FiLogOut, FiMenu, FiX, FiBell } from 'react-icons/fi';
-import { useSocket } from '../context/SocketContext';
+// import { useSocket } from '../context/SocketContext';
+import { useSelector } from 'react-redux';
 import NotificationPanel from '../components/NotificationPanel';
 
 const AppLayout = ({ children }) => {
   const { user, logout } = useAuth();
-  const { unreadCount } = useSocket();
+  // const socket = useSocket().socket;
+  const unreadCountFromRedux = useSelector((state) => state.notifications.unreadCount);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -61,9 +63,9 @@ const AppLayout = ({ children }) => {
                   title="Notifications"
                 >
                   <FiBell className="w-5 h-5" />
-                  {unreadCount > 0 && (
+                  {unreadCountFromRedux > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center leading-none min-w-[18px] min-h-[18px]">
-                      {unreadCount > 9 ? '9+' : unreadCount}
+                      {unreadCountFromRedux > 9 ? '9+' : unreadCountFromRedux}
                     </span>
                   )}
                 </button>
