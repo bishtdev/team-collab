@@ -39,6 +39,10 @@ const KanbanBoard = ({ projectId }) => {
   const [openActivityTaskId, setOpenActivityTaskId] = useState(null);
   const [openSubtasksTaskId, setOpenSubtasksTaskId] = useState(null);
   const [subtaskSummaries, setSubtaskSummaries] = useState({});
+  const [editingPriority, setEditingPriority] = useState(null)
+  const [editPriorityValue, setEditPriorityValue] = useState('');
+  const [editingDueDate, setEditingDueDate] = useState(null);
+  const [editDueDateValue, setEditDueDateValue] = useState('');
 
   const { canCreateTask, canEditTask, canDeleteTask } = usePermissions();
   const { user } = useAuth();
@@ -48,6 +52,13 @@ const KanbanBoard = ({ projectId }) => {
     todo: { title: 'To Do', dotColor: 'bg-gray-400' },
     'in-progress': { title: 'In Progress', dotColor: 'bg-blue-400' },
     done: { title: 'Done', dotColor: 'bg-emerald-400' }
+  }), []);
+
+  const priorityConfig = useMemo(() => ({
+    low: { label: 'Low', bg: 'bg-gray-600/30', text: 'text-gray-300', border: 'border-gray-600', dot: 'bg-gray-400' },
+    medium: { label: 'Medium', bg: 'bg-yellow-900/30', text: 'text-yellow-300', border: 'border-yellow-700', dot: 'bg-yellow-400' },
+    high: { label: 'High', bg: 'bg-orange-900/30', text: 'text-orange-300', border: 'border-orange-700', dot: 'bg-orange-400' },
+    urgent: { label: 'Urgent', bg: 'bg-red-900/30', text: 'text-red-300', border: 'border-red-700', dot: 'bg-red-400' },
   }), []);
 
   const sensors = useSensors(
@@ -161,6 +172,28 @@ const KanbanBoard = ({ projectId }) => {
       data: { assignedTo: assignedTo || null }
     }));
   };
+
+  //to update the priority 
+  const handleUpdatePriority = async (taskId, newPriority) => {
+  try {
+    await dispatch(updateTask({ id: taskId, data: { priority: newPriority } })).unwrap();
+  } catch {
+    toast.error('Failed to update priority');
+  }
+  setEditingPriority(null);
+  setEditPriorityValue('');
+};
+
+//to update the due date
+const handleUpdateDueDate = async (taskId, newDueDate) => {
+  try {
+    await dispatch(updateTask({ id: taskId, data: { dueDate: newDueDate || null } })).unwrap();
+  } catch {
+    toast.error('Failed to update due date');
+  }
+  setEditingDueDate(null);
+  setEditDueDateValue('');
+};
 
   const getTaskCount = (status) => tasks.filter(task => task.status === status).length;
 
@@ -306,17 +339,125 @@ const KanbanBoard = ({ projectId }) => {
                                 </div>
                               )}
 
-                              {task.dueDate && (
-                                <div className="mt-2">
-                                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded border ${task.dueDate < new Date().toISOString().split('T')[0]
-                                      ? ' text-red-700 bg-red-950 dark:text-red-400 border-red-900'
-                                      : ' bg-gray-900 text-gray-400 border-gray-700'
-                                    }`}>
-                                    <FiCalendar className="w-3 h-3 shrink-0" />
-                                    {formatDate(task.dueDate)}
-                                  </span>
+                              {task.priority || task.dueDate ? (
+                                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                                  {task.priority && (
+                                    canEditTask && editingPriority === task._id ? (
+                                      <select
+                                        value={editPriorityValue}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setEditPriorityValue(val);
+                                          handleUpdatePriority(task._id, val);
+                                        }}
+                                        onBlur={() => handleUpdatePriority(task._id, editPriorityValue)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Escape') { setEditingPriority(null); setEditPriorityValue(''); }
+                                        }}
+                                        autoFocus
+                                        className="text-xs bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-white focus:outline-none focus:border-gray-400 appearance-none"
+                                      >
+                                        <option value="low">Low</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="high">High</option>
+                                        <option value="urgent">Urgent</option>
+                                      </select>
+                                    ) : (
+                                      <span
+                                        onClick={() => {
+                                          if (!canEditTask) return;
+                                          setEditingPriority(task._id);
+                                          setEditPriorityValue(task.priority);
+                                        }}
+                                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded border cursor-pointer transition-colors ${priorityConfig[task.priority]?.bg} ${priorityConfig[task.priority]?.text} ${priorityConfig[task.priority]?.border} hover:opacity-80`}
+                                      >
+                                        <span className={`w-1.5 h-1.5 rounded-full ${priorityConfig[task.priority]?.dot}`} />
+                                        {priorityConfig[task.priority]?.label}
+                                      </span>
+                                    )
+                                  )}
+
+                                  {task.dueDate ? (
+                                    canEditTask && editingDueDate === task._id ? (
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="date"
+                                          value={editDueDateValue}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setEditDueDateValue(val);
+                                            handleUpdateDueDate(task._id, val);
+                                          }}
+                                          onBlur={() => handleUpdateDueDate(task._id, editDueDateValue)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Escape') { setEditingDueDate(null); setEditDueDateValue(''); }
+                                          }}
+                                          autoFocus
+                                          className="text-xs bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-white focus:outline-none focus:border-gray-400"
+                                        />
+                                        <button
+                                          onClick={() => handleUpdateDueDate(task._id, null)}
+                                          className="text-xs text-gray-500 hover:text-gray-300 px-1"
+                                          title="Clear due date"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span
+                                        onClick={() => {
+                                          if (!canEditTask) return;
+                                          setEditingDueDate(task._id);
+                                          setEditDueDateValue(new Date(task.dueDate).toISOString().split('T')[0]);
+                                        }}
+                                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded border cursor-pointer transition-colors hover:opacity-80 ${task.dueDate < new Date().toISOString().split('T')[0]
+                                            ? 'text-red-400 bg-red-950 border-red-900'
+                                            : 'text-gray-400 bg-gray-900 border-gray-700'
+                                          }`}
+                                      >
+                                        <FiCalendar className="w-3 h-3 shrink-0" />
+                                        {formatDate(task.dueDate)}
+                                      </span>
+                                    )
+                                  ) : canEditTask && editingDueDate === task._id ? (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="date"
+                                        value={editDueDateValue}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setEditDueDateValue(val);
+                                          if (val) handleUpdateDueDate(task._id, val);
+                                        }}
+                                        onBlur={() => { if (editDueDateValue) handleUpdateDueDate(task._id, editDueDateValue); }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Escape') { setEditingDueDate(null); setEditDueDateValue(''); }
+                                        }}
+                                        autoFocus
+                                        className="text-xs bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-white focus:outline-none focus:border-gray-400"
+                                      />
+                                    </div>
+                                  ) : canEditTask ? (
+                                    <button
+                                      onClick={() => { setEditingDueDate(task._id); setEditDueDateValue(''); }}
+                                      className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded border border-dashed border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500 transition-colors"
+                                    >
+                                      <FiCalendar className="w-3 h-3 shrink-0" />
+                                      Add date
+                                    </button>
+                                  ) : null}
                                 </div>
-                              )}
+                              ) : canEditTask ? (
+                                <div className="mt-2">
+                                  <button
+                                    onClick={() => { setEditingDueDate(task._id); setEditDueDateValue(''); }}
+                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded border border-dashed border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500 transition-colors"
+                                  >
+                                    <FiCalendar className="w-3 h-3 shrink-0" />
+                                    Add date
+                                  </button>
+                                </div>
+                              ) : null}
 
                               <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
                                 {canEditTask ? (
