@@ -2,9 +2,7 @@ import axios from 'axios';
 import { auth } from '../firebaseConfig';
 
 const api = axios.create({
-  baseURL: process.env.NODE_ENV === 'production' 
-    ? 'https://team-collab-backend-lcge.onrender.com/api'
-    : 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   withCredentials: true
 });
 

@@ -18,6 +18,7 @@ import {
 import { Droppable } from './Droppable';
 import { Draggable } from './Draggable';
 import AddTaskModal from './modals/AddTaskModal';
+import TaskDetailModal from './modals/TaskDetailModal';
 import TaskCommentsPanel from './TaskCommentsPanel';
 import ActivityFeedPanel from './ActivityFeedPanel';
 import SubtasksPanel from './SubtasksPanel';
@@ -25,7 +26,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { toast } from 'sonner';
-import { FiPlus, FiUser, FiCalendar, FiEdit2, FiTrash2, FiMessageSquare, FiActivity, FiCheckSquare } from 'react-icons/fi';
+import { FiPlus, FiUser, FiCalendar, FiEdit2, FiTrash2, FiMessageSquare, FiActivity, FiCheckSquare, FiImage } from 'react-icons/fi';
 
 const KanbanBoard = ({ projectId }) => {
   const dispatch = useDispatch();
@@ -43,6 +44,7 @@ const KanbanBoard = ({ projectId }) => {
   const [editPriorityValue, setEditPriorityValue] = useState('');
   const [editingDueDate, setEditingDueDate] = useState(null);
   const [editDueDateValue, setEditDueDateValue] = useState('');
+  const [selectedTask, setSelectedTask] = useState(null);
 
   const { canCreateTask, canEditTask, canDeleteTask } = usePermissions();
   const { user } = useAuth();
@@ -105,11 +107,23 @@ const KanbanBoard = ({ projectId }) => {
     socket.on('task:deleted', handleTaskDeleted);
     socket.on('comment:added', handleCommentAdded);
 
+    const handleAttachmentAdded = ({ projectId: pid }) => {
+      if (pid === projectId) dispatch(fetchTasks(projectId));
+    };
+    const handleAttachmentRemoved = ({ projectId: pid }) => {
+      if (pid === projectId) dispatch(fetchTasks(projectId));
+    };
+
+    socket.on('attachment:added', handleAttachmentAdded);
+    socket.on('attachment:removed', handleAttachmentRemoved);
+
     return () => {
       socket.off('task:created', handleTaskCreated);
       socket.off('task:updated', handleTaskUpdated);
       socket.off('task:deleted', handleTaskDeleted);
       socket.off('comment:added', handleCommentAdded);
+      socket.off('attachment:added', handleAttachmentAdded);
+      socket.off('attachment:removed', handleAttachmentRemoved);
     };
   }, [socket, projectId, user?.name, dispatch, tasks]);
 
@@ -283,7 +297,10 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                         .filter(task => task.status === statusId)
                         .map(task => (
                           <Draggable key={task._id} id={task._id}>
-                            <div className="group p-3 bg-gray-800 rounded-xl border border-gray-700 hover:border-gray-600 transition-colors cursor-grab active:cursor-grabbing">
+                            <div
+                              className="group p-3 bg-gray-800 rounded-xl border border-gray-700 hover:border-gray-600 transition-colors cursor-grab active:cursor-grabbing"
+                              onClick={() => setSelectedTask(task)}
+                            >
 
                               <div className="flex items-start gap-2">
                                 <div className="flex-1 min-w-0">
@@ -309,7 +326,7 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                 <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                   {canEditTask && (
                                     <button
-                                      onClick={() => handleEditTask(task)}
+                                      onClick={(e) => { e.stopPropagation(); handleEditTask(task); }}
                                       className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
                                     >
                                       <FiEdit2 className="w-3.5 h-3.5" />
@@ -317,7 +334,7 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                   )}
                                   {canDeleteTask && (
                                     <button
-                                      onClick={() => handleDeleteTask(task._id)}
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteTask(task._id); }}
                                       className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-950 transition-colors"
                                     >
                                       <FiTrash2 className="w-3.5 h-3.5" />
@@ -330,6 +347,14 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                 <p className="mt-1.5 text-xs text-gray-400 line-clamp-2">
                                   {task.description}
                                 </p>
+                              )}
+
+                              {/* Attachment count badge */}
+                              {task.attachments && task.attachments.length > 0 && (
+                                <div className="mt-1.5 flex items-center gap-1 text-xs text-gray-400">
+                                  <FiImage className="w-3 h-3" />
+                                  <span>{task.attachments.length} attachment{task.attachments.length !== 1 ? 's' : ''}</span>
+                                </div>
                               )}
 
                               {subtaskSummaries[task._id] && (
@@ -364,7 +389,8 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                       </select>
                                     ) : (
                                       <span
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           if (!canEditTask) return;
                                           setEditingPriority(task._id);
                                           setEditPriorityValue(task.priority);
@@ -405,7 +431,8 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                       </div>
                                     ) : (
                                       <span
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           if (!canEditTask) return;
                                           setEditingDueDate(task._id);
                                           setEditDueDateValue(new Date(task.dueDate).toISOString().split('T')[0]);
@@ -439,7 +466,7 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                     </div>
                                   ) : canEditTask ? (
                                     <button
-                                      onClick={() => { setEditingDueDate(task._id); setEditDueDateValue(''); }}
+                                      onClick={(e) => { e.stopPropagation(); setEditingDueDate(task._id); setEditDueDateValue(''); }}
                                       className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded border border-dashed border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500 transition-colors"
                                     >
                                       <FiCalendar className="w-3 h-3 shrink-0" />
@@ -450,7 +477,7 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                               ) : canEditTask ? (
                                 <div className="mt-2">
                                   <button
-                                    onClick={() => { setEditingDueDate(task._id); setEditDueDateValue(''); }}
+                                    onClick={(e) => { e.stopPropagation(); setEditingDueDate(task._id); setEditDueDateValue(''); }}
                                     className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded border border-dashed border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500 transition-colors"
                                   >
                                     <FiCalendar className="w-3 h-3 shrink-0" />
@@ -463,6 +490,7 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                 {canEditTask ? (
                                   <select
                                     value={task.assignedTo?._id || ''}
+                                    onClick={(e) => e.stopPropagation()}
                                     onChange={(e) => handleAssignTask(task._id, e.target.value || null)}
                                     className="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-400 focus:outline-none focus:border-gray-400 appearance-none max-w-[140px]"
                                   >
@@ -489,7 +517,7 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                               <div className="mt-2 pt-2 border-t border-gray-700 flex gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => toggleComments(task._id)}
+                                  onClick={(e) => { e.stopPropagation(); toggleComments(task._id); }}
                                   className="text-xs text-gray-400 hover:text-gray-200 bg-transparent border border-gray-700 hover:border-gray-500 rounded-md px-2 py-1 transition-colors flex items-center gap-1"
                                 >
                                   <FiMessageSquare className="w-3 h-3" />
@@ -497,7 +525,7 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => toggleActivity(task._id)}
+                                  onClick={(e) => { e.stopPropagation(); toggleActivity(task._id); }}
                                   className="text-xs text-gray-400 hover:text-gray-200 bg-transparent border border-gray-700 hover:border-gray-500 rounded-md px-2 py-1 transition-colors flex items-center gap-1"
                                 >
                                   <FiActivity className="w-3 h-3" />
@@ -505,7 +533,7 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => toggleSubtasks(task._id)}
+                                  onClick={(e) => { e.stopPropagation(); toggleSubtasks(task._id); }}
                                   className="text-xs text-gray-400 hover:text-gray-200 bg-transparent border border-gray-700 hover:border-gray-500 rounded-md px-2 py-1 transition-colors flex items-center gap-1"
                                 >
                                   <FiCheckSquare className="w-3 h-3" />
@@ -576,6 +604,14 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
         projectId={projectId}
         teamMembers={teamMembers}
         onSuccess={handleTaskCreated}
+      />
+
+      <TaskDetailModal
+        isOpen={!!selectedTask}
+        onClose={() => setSelectedTask(null)}
+        task={selectedTask}
+        projectId={projectId}
+        teamMembers={teamMembers}
       />
     </div>
   );

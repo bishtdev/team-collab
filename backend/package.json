@@ -18,6 +18,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "cloudinary": "^2.10.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
@@ -25,7 +26,10 @@
     "firebase-admin": "^13.4.0",
     "joi": "^17.13.3",
     "mongoose": "^8.17.0",
-    "socket.io": "^4.8.1"
+    "multer": "^2.2.0",
+    "socket.io": "^4.8.1",
+    "streamifier": "^0.1.1",
+    "uuid": "^14.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

@@ -4,6 +4,7 @@ const Project = require('../models/Project');
 const Activity = require('../models/Activity');
 const Subtask = require('../models/Subtask');
 const Comment = require('../models/Comment');
+const cloudinaryService = require('../services/cloudinaryService');
 const notificationService = require('../services/notificationService');
 
 // ---------------------------------------------------------------------------
@@ -275,6 +276,15 @@ exports.deleteTask = async (req, res) => {
 
     // Notify before cleanup so we still have the task data
     notificationService.notifyTaskDeleted(task, req.user, req.user.teamId);
+
+    // Delete Cloudinary files if task has attachments
+    if (task.attachments && task.attachments.length > 0) {
+      const keys = task.attachments.map((a) => a.key);
+      await cloudinaryService.deleteFiles(keys).catch((err) => {
+        console.error('Cloudinary cleanup error during task deletion:', err);
+        // Non-blocking: continue even if cleanup fails
+      });
+    }
 
     // Delete related subtasks, comments, activities first, then the task
     // Order matters: clean up children before parent so a partial failure preserves the task

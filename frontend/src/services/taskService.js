@@ -11,3 +11,17 @@ export const deleteSubtask = (taskId, subtaskId) => api.delete(`/tasks/${taskId}
 export const fetchComments = (taskId, page = 1, limit = 20) => api.get(`/tasks/${taskId}/comments?page=${page}&limit=${limit}`);
 export const createComment = (taskId, data) => api.post(`/tasks/${taskId}/comments`, data);
 export const fetchActivities = (taskId, page = 1, limit = 20) => api.get(`/tasks/${taskId}/activities?page=${page}&limit=${limit}`);
+
+// ---- Attachment APIs ----
+export const uploadAttachments = (taskId, files) => {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('images', file));
+  return api.post(`/tasks/${taskId}/attachments`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const deleteAttachment = (taskId, key) =>
+  api.delete(`/tasks/${taskId}/attachments/${encodeURIComponent(key)}`);
+
+export const fetchAttachments = (taskId) => api.get(`/tasks/${taskId}/attachments`);

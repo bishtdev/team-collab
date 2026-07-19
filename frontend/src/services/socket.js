@@ -14,9 +14,7 @@ import { io } from 'socket.io-client';
 import { auth } from '../firebaseConfig';
 
 // Determine server URL based on environment
-const SOCKET_URL = process.env.NODE_ENV === 'production'
-  ? 'https://team-collab-backend-lcge.onrender.com'
-  : 'http://localhost:5000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 // Create socket instance with autoConnect: false
 // The socket won't connect until we explicitly call connectSocket()

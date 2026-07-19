@@ -38,6 +38,25 @@ export const deleteTask = createAsyncThunk('tasks/delete', async (taskId, { reje
   }
 });
 
+// ---- Attachment Thunks ----
+export const uploadAttachments = createAsyncThunk('tasks/uploadAttachments', async ({ taskId, files }, { rejectWithValue }) => {
+  try {
+    const res = await taskService.uploadAttachments(taskId, files);
+    return res.data; // { attachments, task }
+  } catch (err) {
+    return rejectWithValue(extractError(err));
+  }
+});
+
+export const deleteAttachment = createAsyncThunk('tasks/deleteAttachment', async ({ taskId, key }, { rejectWithValue }) => {
+  try {
+    const res = await taskService.deleteAttachment(taskId, key);
+    return res.data; // { message, task }
+  } catch (err) {
+    return rejectWithValue(extractError(err));
+  }
+});
+
 const tasksSlice = createSlice({
   name: 'tasks',
   initialState: {
@@ -81,7 +100,30 @@ const tasksSlice = createSlice({
       .addCase(updateTask.rejected, (state, action) => { state.error = action.payload; })
       .addCase(deleteTask.pending, (state) => { state.error = null; })
       .addCase(deleteTask.fulfilled, (state, action) => { state.items = state.items.filter(t => t._id !== action.payload); })
-      .addCase(deleteTask.rejected, (state, action) => { state.error = action.payload; });
+      .addCase(deleteTask.rejected, (state, action) => { state.error = action.payload; })
+      // ---- Attachment reducers ----
+      .addCase(uploadAttachments.pending, (state) => { state.isMutating = true; state.error = null; })
+      .addCase(uploadAttachments.fulfilled, (state, action) => {
+        state.isMutating = false;
+        const { task } = action.payload;
+        const idx = state.items.findIndex((t) => t._id === task._id);
+        if (idx !== -1) state.items[idx] = task;
+      })
+      .addCase(uploadAttachments.rejected, (state, action) => {
+        state.isMutating = false;
+        state.error = action.payload;
+      })
+      .addCase(deleteAttachment.pending, (state) => { state.isMutating = true; state.error = null; })
+      .addCase(deleteAttachment.fulfilled, (state, action) => {
+        state.isMutating = false;
+        const { task } = action.payload;
+        const idx = state.items.findIndex((t) => t._id === task._id);
+        if (idx !== -1) state.items[idx] = task;
+      })
+      .addCase(deleteAttachment.rejected, (state, action) => {
+        state.isMutating = false;
+        state.error = action.payload;
+      });
   },
 });
 

@@ -4,7 +4,7 @@ const notificationSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   type: {
     type: String,
-    enum: ['task_created', 'task_updated', 'task_deleted', 'comment_added', 'assignee_changed', 'subtask_completed', 'subtask_uncompleted'],
+    enum: ['task_created', 'task_updated', 'task_deleted', 'comment_added', 'assignee_changed', 'subtask_completed', 'subtask_uncompleted', 'attachment_added', 'attachment_removed'],
     required: true
   },
   title: { type: String, required: true },

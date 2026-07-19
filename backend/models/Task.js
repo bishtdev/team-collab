@@ -10,8 +10,15 @@ const taskSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   dueDate: { type: Date, default: null },
   priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
-
-  
+  attachments: [{
+    url: { type: String, required: true },
+    key: { type: String, required: true },
+    name: { type: String, required: true },
+    size: { type: Number, required: true },
+    type: { type: String, required: true },
+    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    uploadedAt: { type: Date, default: Date.now },
+  }],
 }, { timestamps: true });
 
 // ---------------------------------------------------------------------------

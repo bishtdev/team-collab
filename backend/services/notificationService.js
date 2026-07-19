@@ -158,3 +158,52 @@ exports.notifySubtaskChanged = async (subtask, task, actor, teamId) => {
     actorId: actor._id
   });
 };
+
+exports.notifyAttachmentAdded = async (task, attachments, actor, teamId) => {
+  if (!task.assignedTo) return;
+  if (task.assignedTo.toString() === actor._id.toString()) return;
+
+  const actorName = actor.name || actor.email;
+  const count = attachments.length;
+
+  socketEmitter.emitToTeam(teamId, 'attachment:added', {
+    taskId: task._id,
+    projectId: task.projectId,
+    count,
+    actorName,
+  });
+
+  await createNotification({
+    userId: task.assignedTo,
+    type: 'attachment_added',
+    title: 'Attachment Added',
+    message: `${actorName} added ${count} attachment(s) to "${task.title}"`,
+    taskId: task._id,
+    projectId: task.projectId,
+    actorId: actor._id,
+  });
+};
+
+exports.notifyAttachmentRemoved = async (task, attachmentName, actor, teamId) => {
+  if (!task.assignedTo) return;
+  if (task.assignedTo.toString() === actor._id.toString()) return;
+
+  const actorName = actor.name || actor.email;
+
+  socketEmitter.emitToTeam(teamId, 'attachment:removed', {
+    taskId: task._id,
+    projectId: task.projectId,
+    attachmentName,
+    actorName,
+  });
+
+  await createNotification({
+    userId: task.assignedTo,
+    type: 'attachment_removed',
+    title: 'Attachment Removed',
+    message: `${actorName} removed "${attachmentName}" from "${task.title}"`,
+    taskId: task._id,
+    projectId: task.projectId,
+    actorId: actor._id,
+  });
+};
