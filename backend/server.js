@@ -40,20 +40,24 @@ const app = express();
 // CORS configuration
 // Only allow specific origins to make requests to this server.
 // In production, FRONTEND_URL should be set in environment variables.
+// Also allows any *.vercel.app domain so Vercel preview deployments work
+// without manually updating the whitelist every time the domain changes.
 // ---------------------------------------------------------------------------
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://team-collab-devbisht.vercel.app',
   process.env.FRONTEND_URL
 ].filter(Boolean); // Remove any undefined/null entries
+
+// Regex pattern: matches any *.vercel.app domain (production + preview deployments)
+const vercelRegex = /^https:\/\/.*\.vercel\.app$/;
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
-    // In production, you may want to reject these for tighter security
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    // Check exact match in whitelist OR match any *.vercel.app domain
+    if (allowedOrigins.includes(origin) || vercelRegex.test(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
