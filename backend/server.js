@@ -117,10 +117,30 @@ admin.initializeApp({
 // MongoDB Connection
 // Connects to MongoDB using the URI from environment variables.
 // Uses Mongoose for ODM (Object Document Mapping).
+// Includes auto-reconnect logic for production resilience.
 // ---------------------------------------------------------------------------
-mongoose.connect(process.env.MONGO_URI)
+const mongoOptions = {
+  serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+  socketTimeoutMS: 45000,
+};
+
+mongoose.connect(process.env.MONGO_URI, mongoOptions)
   .then(() => console.log('MongoDB connected'))
   .catch((err) => console.log('MongoDB connection error:', err));
+
+// Auto-reconnect on disconnect (handles Atlas pauses, network blips)
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected — attempting reconnect...');
+  setTimeout(() => {
+    mongoose.connect(process.env.MONGO_URI, mongoOptions)
+      .then(() => console.log('MongoDB reconnected'))
+      .catch((err) => console.log('MongoDB reconnect failed:', err.message));
+  }, 3000);
+});
+
+mongoose.connection.on('error', (err) => {
+  console.log('MongoDB connection error:', err.message);
+});
 
 // ---------------------------------------------------------------------------
 // Health Check Endpoint
