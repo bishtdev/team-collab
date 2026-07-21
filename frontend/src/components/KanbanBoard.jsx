@@ -26,7 +26,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { toast } from 'sonner';
-import { FiPlus, FiUser, FiCalendar, FiEdit2, FiTrash2, FiMessageSquare, FiActivity, FiCheckSquare, FiImage } from 'react-icons/fi';
+import { FiPlus, FiUser, FiCalendar, FiEdit2, FiTrash2, FiMessageSquare, FiActivity, FiCheckSquare, FiImage, FiEye } from 'react-icons/fi';
 
 const KanbanBoard = ({ projectId }) => {
   const dispatch = useDispatch();
@@ -299,7 +299,6 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                           <Draggable key={task._id} id={task._id}>
                             <div
                               className="group p-3 bg-gray-800 rounded-xl border border-gray-700 hover:border-gray-600 transition-colors cursor-grab active:cursor-grabbing"
-                              onClick={() => setSelectedTask(task)}
                             >
 
                               <div className="flex items-start gap-2">
@@ -357,12 +356,12 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                 </div>
                               )}
 
-                              {subtaskSummaries[task._id] && (
+                              {/* {subtaskSummaries[task._id] && (
                                 <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
                                   <FiCheckSquare className="w-3 h-3" />
                                   <span>{subtaskSummaries[task._id].completed}/{subtaskSummaries[task._id].total} subtasks</span>
                                 </div>
-                              )}
+                              )} */}
 
                               {task.priority || task.dueDate ? (
                                 <div className="mt-2 flex items-center gap-2 flex-wrap">
@@ -514,7 +513,15 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                 )}
                               </div>
 
-                              <div className="mt-2 pt-2 border-t border-gray-700 flex gap-2">
+                              <div className="mt-2 pt-2 border-t border-gray-700 flex gap-2 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setSelectedTask(task); }}
+                                  className="text-xs text-gray-400 hover:text-white bg-transparent border border-gray-700 hover:border-gray-500 hover:bg-gray-700/50 rounded-md px-2 py-1 transition-colors flex items-center gap-1"
+                                >
+                                  <FiEye className="w-3 h-3" title='view details' />
+                                  
+                                </button>
                                 <button
                                   type="button"
                                   onClick={(e) => { e.stopPropagation(); toggleComments(task._id); }}
