@@ -58,29 +58,31 @@ const ActivityFeedPanel = ({ taskId, initialPage = 1, pageSize = 20 }) => {
   };
 
   return (
-    <section aria-label="Task Activity Feed" className="bg-gray-900/40 p-3 rounded-lg border border-gray-800/30">
-      <div className="flex items-center justify-between mb-2">
+    <section aria-label="Task Activity Feed" className="bg-gray-900/40 p-3 sm:p-4 rounded-xl border border-gray-800/30">
+      <div className="flex items-center justify-between mb-3">
         <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Activity</h4>
-        <span className="text-xs text-gray-500">{activities.length} / {pagination.total}</span>
+        <span className="text-xs text-gray-500 tabular-nums">{activities.length} / {pagination.total}</span>
       </div>
 
-      {activityState?.error && <div className="text-xs text-red-400 mb-2">{activityState.error}</div>}
+      {activityState?.error && <div className="text-xs text-red-400 mb-2 px-1">{activityState.error}</div>}
 
-      <div className="max-h-48 overflow-auto pr-1 scrollbar-thin space-y-2">
+      <div className="max-h-48 overflow-y-auto pr-1 space-y-2.5 scrollbar-thin">
         {isLoading && activities.length === 0 ? (
-          <div className="text-xs text-gray-400">Loading activity...</div>
+          <div className="text-xs text-gray-400 py-2">Loading activity...</div>
         ) : activities.length === 0 ? (
-          <div className="text-xs text-gray-500 italic">No activity yet</div>
+          <div className="text-xs text-gray-500 italic py-2">No activity yet</div>
         ) : (
           activities.map((activity) => (
-            <div key={activity._id} className="flex items-start gap-2">
-              <div className="w-2 h-2 rounded-full bg-gray-600 mt-1.5 flex-shrink-0" />
-              <div className="flex-1">
-                <div className="text-xs text-gray-300">
+            <div key={activity._id} className="flex items-start gap-2.5 group">
+              <div className="relative mt-1.5 flex-shrink-0">
+                <div className="w-2 h-2 rounded-full bg-gray-500 group-hover:bg-gray-400 transition-colors" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-gray-300 leading-relaxed">
                   <span className="font-medium text-white">{formatActor(activity)}</span>{' '}
                   <span className="text-gray-400">{formatAction(activity.action)}</span>
                 </div>
-                <div className="text-[10px] text-gray-500">{formatTime(activity.createdAt)}</div>
+                <div className="text-[10px] text-gray-500 mt-0.5">{formatTime(activity.createdAt)}</div>
               </div>
             </div>
           ))
@@ -88,9 +90,9 @@ const ActivityFeedPanel = ({ taskId, initialPage = 1, pageSize = 20 }) => {
       </div>
 
       {canLoadMore && (
-        <div className="mt-2 text-right">
+        <div className="mt-3 pt-2 border-t border-gray-800/50 text-center">
           <button
-            className="text-xs text-gray-400 hover:text-white"
+            className="text-xs text-gray-400 hover:text-white transition-colors px-3 py-1 rounded-md hover:bg-gray-800/50"
             onClick={() => fetchPage(page + 1)}
           >
             Load more

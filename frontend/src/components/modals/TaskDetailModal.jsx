@@ -67,6 +67,27 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
     }
   }, [task?._id, isOpen]);
 
+  // Lock background scroll + keyboard nav for lightbox
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setLightboxIndex(null);
+      if (e.key === 'ArrowLeft') setLightboxIndex((i) => (i > 0 ? i - 1 : i));
+      if (e.key === 'ArrowRight') setLightboxIndex((i) => (i < attachments.length - 1 ? i + 1 : i));
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxIndex, attachments.length]);
+
   // ---- Title Editing ----
   const handleSaveTitle = async () => {
     const trimmed = title.trim();
@@ -202,12 +223,14 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4"
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4"
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
-        <div className="w-full max-w-4xl bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl shadow-black/50 my-8 animate-modalSlideIn">
+        <div
+          className="w-full sm:max-w-2xl lg:max-w-4xl bg-gray-900 border border-gray-800 sm:rounded-2xl rounded-t-2xl shadow-2xl shadow-black/50 flex flex-col max-h-[92vh] sm:max-h-[88vh] animate-modalSlideIn overflow-hidden"
+        >
           {/* ---- Header ---- */}
-          <div className="sticky top-0 bg-gray-900 rounded-t-2xl border-b border-gray-800 px-6 py-4 flex items-start justify-between gap-4 z-10">
+          <div className="shrink-0 bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-3.5 sm:py-4 flex items-start justify-between gap-3 sm:gap-4">
             <div className="flex-1 min-w-0">
               {isEditingTitle ? (
                 <div className="flex items-center gap-2">
@@ -217,65 +240,65 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
                     onChange={(e) => setTitle(e.target.value)}
                     onKeyDown={handleTitleKeyDown}
                     onBlur={handleSaveTitle}
-                    className="flex-1 text-xl font-semibold bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:ring-1 focus:ring-gray-500"
+                    className="flex-1 min-w-0 text-lg sm:text-xl font-semibold bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:ring-1 focus:ring-gray-500"
                     autoFocus
                   />
-                  <button onClick={handleSaveTitle} className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors">
+                  <button onClick={handleSaveTitle} className="shrink-0 p-2 sm:p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors">
                     <FiCheck className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 group">
-                  <h2 className="text-xl font-semibold text-white truncate">{task?.title}</h2>
+                  <h2 className="text-lg sm:text-xl font-semibold text-white truncate">{task?.title}</h2>
                   <button
                     onClick={() => setIsEditingTitle(true)}
-                    className="p-1 text-gray-600 opacity-0 group-hover:opacity-100 hover:text-gray-300 transition-all"
+                    className="shrink-0 p-1 text-gray-600 opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 hover:text-gray-300 transition-all"
                   >
                     <FiEdit2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               )}
-              <div className="flex items-center gap-2 mt-2">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[task?.status]}`}>
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusColors[task?.status]}`}>
                   {statusLabels[task?.status]}
                 </span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priorityColors[task?.priority]}`}>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap capitalize ${priorityColors[task?.priority]}`}>
                   {task?.priority}
                 </span>
                 {task?.dueDate && (
-                  <span className="flex items-center gap-1 text-xs text-gray-500">
-                    <FiCalendar className="w-3 h-3" />
+                  <span className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap">
+                    <FiCalendar className="w-3 h-3 shrink-0" />
                     {formatDate(task.dueDate)}
                   </span>
                 )}
                 {assignedUser && (
-                  <span className="flex items-center gap-1 text-xs text-gray-500">
-                    <FiUser className="w-3 h-3" />
+                  <span className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap">
+                    <FiUser className="w-3 h-3 shrink-0" />
                     {assignedUser.name}
                   </span>
                 )}
               </div>
             </div>
-            <button onClick={onClose} className="p-2 text-gray-500 hover:text-white hover:bg-gray-800 rounded-xl transition-colors">
+            <button onClick={onClose} className="shrink-0 p-2 text-gray-500 hover:text-white hover:bg-gray-800 rounded-xl transition-colors">
               <FiX className="w-5 h-5" />
             </button>
           </div>
 
-          {/* ---- Body ---- */}
-          <div className="p-6">
+          {/* ---- Body (scrolls independently of header) ---- */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             {localError && (
               <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
                 {localError}
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
               {/* Left Column: Description + Attachments */}
-              <div className="lg:col-span-2 space-y-6">
+              <div className="lg:col-span-2 space-y-5 sm:space-y-6">
                 {/* Description */}
                 <section>
                   <div className="flex items-center justify-between group mb-2">
-                    <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Description</h3>
+                    <h3 className="text-xs sm:text-sm font-semibold text-gray-400 uppercase tracking-wider">Description</h3>
                     {!isEditingDesc && (
                       <button
                         onClick={() => setIsEditingDesc(true)}
@@ -298,13 +321,13 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
                         <button
                           onClick={handleSaveDescription}
                           disabled={isMutating}
-                          className="px-3 py-1.5 bg-white text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+                          className="px-3 py-2 sm:py-1.5 bg-white text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
                         >
                           Save
                         </button>
                         <button
                           onClick={() => { setDescription(task.description || ''); setIsEditingDesc(false); }}
-                          className="px-3 py-1.5 border border-gray-800 rounded-lg text-gray-400 hover:bg-gray-800 text-sm transition-colors"
+                          className="px-3 py-2 sm:py-1.5 border border-gray-800 rounded-lg text-gray-400 hover:bg-gray-800 text-sm transition-colors"
                         >
                           Cancel
                         </button>
@@ -319,8 +342,8 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
 
                 {/* Attachments Gallery */}
                 <section>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h3 className="text-xs sm:text-sm font-semibold text-gray-400 uppercase tracking-wider">
                       Attachments {totalAttachmentCount > 0 && <span className="text-gray-600">({totalAttachmentCount})</span>}
                     </h3>
                     <div className="flex items-center gap-2">
@@ -328,17 +351,17 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
                         <button
                           onClick={handleUploadFiles}
                           disabled={isMutating}
-                          className="px-3 py-1.5 bg-white text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                          className="px-3 py-2 sm:py-1.5 bg-white text-gray-900 rounded-lg text-xs sm:text-sm font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 flex items-center gap-1.5"
                         >
                           <FiUpload className="w-3.5 h-3.5" />
-                          Upload ({selectedFiles.length})
+                          <span className="hidden xs:inline">Upload</span> ({selectedFiles.length})
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={totalAttachmentCount >= MAX_FILES}
-                        className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-40"
+                        className="p-2 sm:p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-40"
                         title="Add attachments"
                       >
                         <FiPaperclip className="w-4 h-4" />
@@ -357,15 +380,15 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
                   {/* Pending uploads */}
                   {filePreviews.length > 0 && (
                     <div className="mb-3">
-                      <p className="text-xs text-yellow-400 mb-2">Pending upload — click "Upload" to save</p>
+                      <p className="text-xs text-yellow-400 mb-2">Pending upload — tap "Upload" to save</p>
                       <div className="flex flex-wrap gap-2">
                         {filePreviews.map((preview, idx) => (
                           <div key={idx} className="relative group">
-                            <img src={preview.url} alt={preview.name} className="w-20 h-20 rounded-lg object-cover border border-yellow-700/50" />
+                            <img src={preview.url} alt={preview.name} className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover border border-yellow-700/50" />
                             <button
                               type="button"
                               onClick={() => removePendingFile(idx)}
-                              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                             >
                               <FiX className="w-3 h-3 text-white" />
                             </button>
@@ -382,7 +405,7 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
                       <p className="text-sm">No attachments yet</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
                       {attachments.map((att, idx) => (
                         <div key={att.key || idx} className="relative group">
                           <button
@@ -396,13 +419,13 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
                               loading="lazy"
                             />
                           </button>
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 rounded-b-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 rounded-b-xl opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <p className="text-[10px] text-white truncate">{att.name}</p>
                             <p className="text-[9px] text-gray-400">{formatFileSize(att.size)}</p>
                           </div>
                           <button
                             onClick={() => handleDeleteAttachment(att.key)}
-                            className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                            className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500/80 rounded-full flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-500"
                           >
                             <FiTrash2 className="w-3 h-3 text-white" />
                           </button>
@@ -427,31 +450,31 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
       {/* Lightbox */}
       {lightboxIndex !== null && attachments[lightboxIndex] && (
         <div
-          className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-3 sm:p-4"
           onClick={() => setLightboxIndex(null)}
         >
           <button
             onClick={() => setLightboxIndex(null)}
-            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-colors z-10"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-colors z-10"
           >
-            <FiX className="w-6 h-6" />
+            <FiX className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
           {lightboxIndex > 0 && (
             <button
               onClick={(e) => { e.stopPropagation(); setLightboxIndex(lightboxIndex - 1); }}
-              className="absolute left-4 p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-colors z-10"
+              className="absolute left-1.5 sm:left-4 p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-colors z-10"
             >
-              <FiChevronLeft className="w-6 h-6" />
+              <FiChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
           )}
 
           {lightboxIndex < attachments.length - 1 && (
             <button
               onClick={(e) => { e.stopPropagation(); setLightboxIndex(lightboxIndex + 1); }}
-              className="absolute right-4 p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-colors z-10"
+              className="absolute right-1.5 sm:right-4 p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-colors z-10"
             >
-              <FiChevronRight className="w-6 h-6" />
+              <FiChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
           )}
 
@@ -459,9 +482,9 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
             <img
               src={attachments[lightboxIndex].url}
               alt={attachments[lightboxIndex].name}
-              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+              className="max-w-full max-h-[75vh] sm:max-h-[85vh] object-contain rounded-lg"
             />
-            <p className="text-center text-sm text-gray-400 mt-3">
+            <p className="text-center text-xs sm:text-sm text-gray-400 mt-3 px-4">
               {attachments[lightboxIndex].name} — {formatFileSize(attachments[lightboxIndex].size)}
               <span className="text-gray-600"> ({lightboxIndex + 1} of {attachments.length})</span>
             </p>

@@ -69,8 +69,8 @@ const SubtasksPanel = ({ taskId, onSummaryChange }) => {
   };
 
   return (
-    <section className="bg-gray-900/60 p-4 rounded-xl border border-gray-800/50">
-      <div className="flex items-center justify-between mb-2">
+    <section className="bg-gray-900/60 p-3 sm:p-4 rounded-xl border border-gray-800/50">
+      <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-white">Subtasks</h3>
         {!isLoading && subtasks.length > 0 && (
           <span className="text-xs text-gray-400">
@@ -79,18 +79,18 @@ const SubtasksPanel = ({ taskId, onSummaryChange }) => {
         )}
       </div>
 
-      <form onSubmit={handleAdd} className="flex items-center gap-2 mb-3">
+      <form onSubmit={handleAdd} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
         <input
           ref={inputRef}
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           placeholder="Add a subtask..."
-          className="flex-1 bg-gray-800/50 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-600 placeholder-gray-500"
+          className="flex-1 min-w-0 bg-gray-800/50 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-600 placeholder-gray-500"
         />
         <button
           type="submit"
           disabled={!newTitle.trim()}
-          className="flex items-center gap-1 px-3 py-2 bg-white text-gray-900 rounded-md text-sm font-medium disabled:opacity-50 transition-opacity"
+          className="flex items-center justify-center gap-1 px-3 py-2 bg-white text-gray-900 rounded-md text-sm font-medium disabled:opacity-50 transition-opacity whitespace-nowrap sm:w-auto w-full"
         >
           <FiPlus className="w-3.5 h-3.5" />
           Add
@@ -99,7 +99,7 @@ const SubtasksPanel = ({ taskId, onSummaryChange }) => {
 
       {error && <div className="mb-2 text-xs text-red-400">{error}</div>}
 
-      <div className="max-h-64 overflow-auto pr-1 scrollbar-thin space-y-1">
+      <div className="max-h-64 overflow-y-auto pr-1 scrollbar-thin space-y-1">
         {isLoading && subtasks.length === 0 ? (
           <div className="text-xs text-gray-400 py-2">Loading subtasks...</div>
         ) : subtasks.length === 0 && !isLoading ? (
