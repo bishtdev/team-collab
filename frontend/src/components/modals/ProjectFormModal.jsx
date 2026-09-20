@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { toast } from 'sonner';
 import Modal from '../Modal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { createProject, updateProject, fetchTeamUsers } from '../../features/projects/projectsSlice';
 
 const ProjectFormModal = ({ isOpen, onClose, mode = 'create', project = null }) => {
@@ -45,12 +50,20 @@ const ProjectFormModal = ({ isOpen, onClose, mode = 'create', project = null }) 
 
     const payload = { name, description, assignedUsers: selectedUsers };
 
-    if (mode === 'create') {
-      dispatch(createProject(payload));
-    } else {
-      dispatch(updateProject({ id: project._id, data: payload }));
+    try {
+      if (mode === 'create') {
+        await dispatch(createProject(payload)).unwrap();
+        toast.success('Project created', { description: `${name} is ready.` });
+      } else {
+        await dispatch(updateProject({ id: project._id, data: payload })).unwrap();
+        toast.success('Changes saved');
+      }
+      onClose();
+    } catch (err) {
+      setLocalError(
+        typeof err === 'string' ? err : 'Could not save the project. Try again.'
+      );
     }
-    onClose();
   };
 
   const displayError = localError || error;
@@ -64,64 +77,65 @@ const ProjectFormModal = ({ isOpen, onClose, mode = 'create', project = null }) 
       size="md"
     >
       {displayError && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-small text-destructive">
           {displayError}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">
-            Project Name <span className="text-red-400">*</span>
-          </label>
-          <input
+          <Label htmlFor="project-form-name" className="mb-1.5">
+            Project Name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="project-form-name"
             type="text"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white placeholder:text-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm"
             placeholder="e.g., Marketing Website Redesign"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">
+          <Label htmlFor="project-form-description" className="mb-1.5">
             Description
-          </label>
-          <textarea
+          </Label>
+          <Textarea
+            id="project-form-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white placeholder:text-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm resize-none"
+            className="resize-none"
             placeholder="What is this project about?"
             rows={3}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">
+          <Label className="mb-1.5">
             Assign Members
-          </label>
+          </Label>
           {teamMembers.length === 0 ? (
-            <div className="py-4 text-center text-gray-600 text-sm">No team members found</div>
+            <div className="py-3 text-center text-small text-faint">No team members found</div>
           ) : (
-            <div className="max-h-36 overflow-y-auto space-y-1 border border-gray-800 rounded-xl p-2 bg-gray-800/30 scrollbar-thin">
+            <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border border-border bg-surface p-2 scrollbar-thin">
               {teamMembers.map(member => (
                 <label
                   key={member._id}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors text-sm ${
+                  className={`flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-small transition-colors duration-150 ease-kiln ${
                     selectedUsers.includes(member._id)
-                      ? 'bg-gray-700/50 text-white'
-                      : 'text-gray-400 hover:bg-gray-800/50'
+                      ? 'bg-accent text-foreground'
+                      : 'text-muted-foreground hover:bg-accent/50'
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={selectedUsers.includes(member._id)}
                     onChange={() => toggleUser(member._id)}
-                    className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-white focus:ring-gray-600 focus:ring-offset-0 accent-white"
+                    className="size-4 rounded-xs border-border accent-primary"
                   />
                   <span>{member.name}</span>
-                  <span className="text-gray-600 text-xs ml-auto">{member.email}</span>
+                  <span className="ml-auto text-micro text-faint">{member.email}</span>
                 </label>
               ))}
             </div>
@@ -129,27 +143,22 @@ const ProjectFormModal = ({ isOpen, onClose, mode = 'create', project = null }) 
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={onClose}
-            className="px-4 py-2.5 border border-gray-800 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-gray-300 transition-colors text-sm"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
+            loading={isMutating}
             disabled={isMutating}
-            className="px-5 py-2.5 bg-white text-gray-900 font-medium rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
           >
-            {isMutating ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin" />
-                <span>{mode === 'create' ? 'Creating...' : 'Saving...'}</span>
-              </>
-            ) : (
-              <span>{mode === 'create' ? 'Create Project' : 'Save Changes'}</span>
-            )}
-          </button>
+            {isMutating
+              ? (mode === 'create' ? 'Creating…' : 'Saving…')
+              : (mode === 'create' ? 'Create project' : 'Save changes')}
+          </Button>
         </div>
       </form>
     </Modal>

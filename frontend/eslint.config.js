@@ -26,4 +26,14 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    files: [
+      'src/context/**/*.{js,jsx}',
+      'src/components/theme/**/*.{js,jsx}',
+      'src/components/product/StatusBadge.jsx',
+    ],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

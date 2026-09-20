@@ -1,7 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { ListChecks, Plus, Trash2 } from 'lucide-react';
 import { fetchSubtasks, createSubtask, updateSubtask, deleteSubtask } from '../features/tasks/subtasksSlice';
-import { FiPlus, FiTrash2 } from 'react-icons/fi';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/product/EmptyState';
 
 const SubtasksPanel = ({ taskId, onSummaryChange }) => {
   const dispatch = useDispatch();
@@ -69,73 +72,86 @@ const SubtasksPanel = ({ taskId, onSummaryChange }) => {
   };
 
   return (
-    <section className="bg-gray-900/60 p-3 sm:p-4 rounded-xl border border-gray-800/50">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-white">Subtasks</h3>
+    <section className="rounded-lg border border-border bg-surface p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-small font-semibold text-foreground">Subtasks</h3>
         {!isLoading && subtasks.length > 0 && (
-          <span className="text-xs text-gray-400">
+          <span className="text-micro tabular-nums text-faint">
             {subtasks.filter(s => s.completed).length}/{subtasks.length}
           </span>
         )}
       </div>
 
-      <form onSubmit={handleAdd} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
+      <form onSubmit={handleAdd} className="mb-3 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
         <input
           ref={inputRef}
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           placeholder="Add a subtask..."
-          className="flex-1 min-w-0 bg-gray-800/50 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-600 placeholder-gray-500"
+          className="h-9 min-w-0 flex-1 rounded-md border border-input bg-input px-3 text-small text-foreground transition-[border-color,box-shadow] duration-150 ease-kiln outline-none placeholder:text-faint focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
         />
-        <button
+        <Button
           type="submit"
           disabled={!newTitle.trim()}
-          className="flex items-center justify-center gap-1 px-3 py-2 bg-white text-gray-900 rounded-md text-sm font-medium disabled:opacity-50 transition-opacity whitespace-nowrap sm:w-auto w-full"
+          className="w-full whitespace-nowrap sm:w-auto"
         >
-          <FiPlus className="w-3.5 h-3.5" />
+          <Plus className="size-4" strokeWidth={1.75} />
           Add
-        </button>
+        </Button>
       </form>
 
-      {error && <div className="mb-2 text-xs text-red-400">{error}</div>}
+      {error && <div className="mb-2 text-small text-destructive">{error}</div>}
 
-      <div className="max-h-64 overflow-y-auto pr-1 scrollbar-thin space-y-1">
+      <div className="max-h-64 space-y-1 overflow-y-auto pr-1 scrollbar-thin">
         {isLoading && subtasks.length === 0 ? (
-          <div className="text-xs text-gray-400 py-2">Loading subtasks...</div>
+          <div className="space-y-2 py-1">
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-5/6" />
+          </div>
         ) : subtasks.length === 0 && !isLoading ? (
-          <div className="text-xs text-gray-500 py-2">No subtasks yet - add one above.</div>
+          <EmptyState
+            icon={ListChecks}
+            title="No subtasks yet"
+            description="Add one above to break this task into steps."
+            className="border-0 bg-transparent px-4 py-6"
+          />
         ) : (
           subtasks.map((s) => (
             <div
               key={s._id}
-              className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-800/40 group transition-colors"
+              className="group flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent"
             >
               <input
                 type="checkbox"
                 checked={s.completed}
                 onChange={() => handleToggle(s)}
                 disabled={togglingIds.has(s._id)}
-                className="w-3.5 h-3.5 rounded border-gray-600 bg-gray-700 accent-white cursor-pointer shrink-0"
+                aria-label={`Mark ${s.title} as ${s.completed ? 'incomplete' : 'complete'}`}
+                className="size-4 shrink-0 cursor-pointer rounded-xs border-border accent-primary disabled:cursor-not-allowed disabled:opacity-50"
               />
               <span
-                className={`flex-1 text-sm leading-snug break-words min-w-0 ${
-                  s.completed ? 'line-through text-gray-500' : 'text-gray-200'
+                className={`min-w-0 flex-1 break-words text-small leading-snug ${
+                  s.completed ? 'text-faint line-through' : 'text-foreground'
                 }`}
               >
                 {s.title}
               </span>
               {s.assigneeId && (
-                <span className="text-[10px] text-gray-500 shrink-0 hidden sm:inline">
+                <span className="hidden shrink-0 text-micro text-faint sm:inline">
                   {s.assigneeId.name}
                 </span>
               )}
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => handleDelete(s._id)}
-                className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-950/50 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                className="shrink-0 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
                 title="Delete subtask"
+                aria-label="Delete subtask"
               >
-                <FiTrash2 className="w-3 h-3" />
-              </button>
+                <Trash2 className="size-4" strokeWidth={1.75} />
+              </Button>
             </div>
           ))
         )}

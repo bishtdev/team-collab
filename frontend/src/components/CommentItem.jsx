@@ -1,4 +1,5 @@
 import React from 'react';
+import { UserAvatar } from '@/components/product/UserAvatar';
 
 // CommentItem
 // Simple presentational component for a single comment
@@ -9,16 +10,14 @@ const CommentItem = ({ comment }) => {
   const name = author.name || 'Unknown';
   const time = new Date(comment.createdAt).toLocaleString();
   return (
-    <div className="flex items-start gap-2 mb-2">
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
-        {name.charAt(0).toUpperCase()}
-      </div>
-      <div className="flex-1 bg-gray-800/40 rounded-lg p-2 text-sm border border-gray-700/40">
-        <div className="flex items-center justify-between mb-0.5">
-          <span className="font-medium text-white">{name}</span>
-          <span className="text-xs text-gray-400">{time}</span>
+    <div className="mb-2 flex items-start gap-3">
+      <UserAvatar name={name} size="md" />
+      <div className="min-w-0 flex-1 rounded-md border border-border bg-background p-3 text-small">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <span className="font-medium text-foreground">{name}</span>
+          <span className="text-micro tabular-nums text-faint">{time}</span>
         </div>
-        <div className="text-white whitespace-pre-wrap">{comment.content}</div>
+        <div className="whitespace-pre-wrap text-foreground">{comment.content}</div>
       </div>
     </div>
   );

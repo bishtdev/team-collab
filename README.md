@@ -1,6 +1,10 @@
-# Team Collaboration Platform
+# Kiln — Team Collaboration Platform
 
-A modern, real-time team collaboration platform built with React and Node.js. This application enables teams to manage projects, assign tasks, and communicate seamlessly in a collaborative environment.
+A real-time team collaboration platform built with React and Node.js. Kiln gives teams projects, kanban boards, and chat in one warm, focused workspace.
+
+## 🎨 Design language
+
+Kiln has its own product identity — the **Kiln design system**: an earth-tone palette (moss, gilt, umber, oat), a distinctive type pairing (Bricolage Grotesque, Instrument Sans, Spline Sans Mono), dark-first theming, and fully token-driven surfaces so the entire UI can be restyled from one file. See [`ui_renovation.md`](./ui_renovation.md) for the plan and [`frontend/DESIGN.md`](./frontend/DESIGN.md) for the token contract. Every component is previewed live at `/design`.
 
 ## 🚀 Live Demo
 
@@ -18,11 +22,15 @@ A modern, real-time team collaboration platform built with React and Node.js. Th
 - **Role-based Access**: Admin, Manager, and Member roles with different permissions
 
 ### Additional Features
+- **Task detail modal**: description, priority, due date, assignee, and attachments in one view
+- **Task comments**: threaded discussion with notifications for the team
+- **Subtasks and activity feed**: break work down and audit every change
+- **Attachments**: image and file uploads backed by Cloudinary
+- **Real-time notifications**: bell with unread count for assignments, comments, and task changes
+- **Live board sync**: tasks move for everyone at once over Socket.io
 - **Responsive Design**: Mobile-friendly interface with modern UI components
-- **Real-time Updates**: Live updates for tasks, projects, and chat messages
 - **User Assignment**: Assign multiple team members to projects and tasks
-- **Task Status Management**: Track tasks through different stages (To Do, In Progress, Done)
-- **Team Setup Wizard**: Guided team creation and member invitation process
+- **Team Setup**: Guided team creation and member invitation process
 - **Protected Routes**: Secure navigation with authentication guards
 
 ## 🛠️ Technology Stack
@@ -31,13 +39,15 @@ A modern, real-time team collaboration platform built with React and Node.js. Th
 - **React 18.2.0** - Modern React with hooks and functional components
 - **Vite** - Fast build tool and development server
 - **React Router DOM 7.7.1** - Client-side routing
+- **Redux Toolkit + React Redux** - Client state and realtime slices
 - **Tailwind CSS 4.1.11** - Utility-first CSS framework
 - **shadcn/ui** - Modern UI component library
 - **Firebase 12.0.0** - Authentication and user management
 - **Socket.io Client 4.8.1** - Real-time communication
 - **Axios 1.11.0** - HTTP client for API requests
 - **@dnd-kit** - Modern drag-and-drop functionality
-- **React Icons 5.5.0** - Icon library
+- **lucide-react** - Icon library
+- **Fontsource variable fonts** - Bricolage Grotesque, Instrument Sans, Spline Sans Mono
 - **Sonner** - Toast notifications
 
 ### Backend
@@ -46,7 +56,7 @@ A modern, real-time team collaboration platform built with React and Node.js. Th
 - **MongoDB** - NoSQL database with Mongoose ODM
 - **Firebase Admin 13.4.0** - Server-side Firebase integration
 - **Socket.io 4.8.1** - Real-time bidirectional communication
-- **JWT** - JSON Web Token authentication
+- **Multer + Cloudinary** - File uploads and storage
 - **Joi 17.13.3** - Data validation
 - **CORS 2.8.5** - Cross-origin resource sharing
 
@@ -240,13 +250,11 @@ Created with ❤️ by [Dev Bishht](https://github.com/devbisht)
 
 ## 🐛 Known Issues
 
-- Team member loading in project assignment (debugging in progress)
 - WebSocket connection optimization needed for production
+- Email notifications and digests are not implemented yet
 
 ## 🔮 Future Enhancements
 
-- File upload and sharing
-- Task comments and attachments
 - Email notifications
 - Advanced reporting and analytics
 - Mobile app development

@@ -1,10 +1,31 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/kiln.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
+    <meta name="theme-color" content="#15120d" />
+    <meta
+      name="description"
+      content="Kiln — projects, boards, and chat for teams that make things that hold."
+    />
+    <title>Kiln — Team collaboration</title>
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("kiln-theme");
+          var dark =
+            !stored ||
+            stored === "dark" ||
+            (stored === "system" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.classList.toggle("dark", dark);
+          document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        } catch (e) {
+          /* dark by default */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

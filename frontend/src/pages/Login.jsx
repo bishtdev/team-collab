@@ -1,15 +1,22 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi';
+import { Eye, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { friendlyAuthError } from '@/lib/authErrors';
 
 const Login = () => {
-  const { login } = useAuth();
+  const { login, resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -20,96 +27,115 @@ const Login = () => {
       await login(email, password);
       navigate('/projects');
     } catch (err) {
-      setError(err.message || 'Invalid email or password. Please try again.');
+      setError(friendlyAuthError(err));
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Enter your email first, then choose "Forgot password".');
+      return;
+    }
+    setError('');
+    setResetting(true);
+    try {
+      await resetPassword(email);
+      toast.success('Reset email sent', {
+        description: `Check ${email} for the link to set a new password.`,
+      });
+    } catch (err) {
+      setError(friendlyAuthError(err));
+    } finally {
+      setResetting(false);
+    }
+  };
+
   return (
     <>
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-white">Welcome back</h1>
-        <p className="text-gray-500 mt-2 text-sm">Sign in to your account to continue</p>
+      <div className="space-y-1.5">
+        <h1 className="text-h2 font-semibold text-foreground">Welcome back</h1>
+        <p className="text-small text-muted-foreground">
+          Sign in to continue to your workspace.
+        </p>
       </div>
 
       {error && (
-        <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm flex items-start gap-2">
-          <span className="shrink-0 mt-0.5">⚠</span>
-          <span>{error}</span>
+        <div
+          role="alert"
+          className="mt-5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-small text-destructive"
+        >
+          {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">Email</label>
-          <div className="relative">
-            <FiMail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 w-4 h-4" />
-            <input
-              id="login-email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-800 bg-gray-800/50 text-white placeholder:text-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm"
-              placeholder="your@email.com"
-            />
-          </div>
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="login-email">Email</Label>
+          <Input
+            id="login-email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@company.com"
+            autoComplete="email"
+          />
         </div>
 
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <label className="block text-sm font-medium text-gray-400">Password</label>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="login-password">Password</Label>
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={resetting}
+              className="text-micro text-muted-foreground underline-offset-4 transition-colors duration-150 ease-kiln hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
+            >
+              Forgot password?
+            </button>
           </div>
           <div className="relative">
-            <FiLock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 w-4 h-4" />
-            <input
+            <Input
               id="login-password"
               type={showPassword ? 'text' : 'password'}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-10 pr-12 py-3 rounded-xl border border-gray-800 bg-gray-800/50 text-white placeholder:text-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm"
-              placeholder="••••••••"
+              placeholder="Your password"
+              autoComplete="current-password"
+              className="pr-10"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400 transition-colors"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md text-faint transition-colors duration-150 ease-kiln hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
-              {showPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+              {showPassword ? (
+                <EyeOff className="size-4" strokeWidth={1.75} />
+              ) : (
+                <Eye className="size-4" strokeWidth={1.75} />
+              )}
             </button>
           </div>
         </div>
 
-        <button
-          id="login-submit"
-          type="submit"
-          disabled={isLoading}
-          className="w-full bg-white text-gray-900 font-semibold py-3 px-4 rounded-xl hover:bg-gray-100 transition-all duration-200 focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
-        >
-          {isLoading ? (
-            <>
-              <div className="w-4 h-4 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin" />
-              <span>Signing in...</span>
-            </>
-          ) : (
-            <>
-              <span>Sign In</span>
-              <FiArrowRight className="w-4 h-4" />
-            </>
-          )}
-        </button>
+        <Button id="login-submit" type="submit" loading={isLoading} className="w-full">
+          Sign in
+        </Button>
       </form>
 
-      <div className="mt-6 pt-6 border-t border-gray-800/80">
-        <p className="text-sm text-gray-500 text-center">
-          Don't have an account?{' '}
-          <Link to="/signup" className="font-medium text-white hover:text-gray-300 transition-colors">
-            Sign up
-          </Link>
-        </p>
-      </div>
+      <p className="mt-6 text-small text-muted-foreground">
+        Don't have an account?{' '}
+        <Link
+          to="/signup"
+          className="font-medium text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          Create an account
+        </Link>
+      </p>
     </>
   );
 };

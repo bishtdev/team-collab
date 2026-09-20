@@ -1,12 +1,31 @@
 import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { Link } from 'react-router-dom';
+import { FolderKanban, Pencil, Plus, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { fetchProjects, deleteProject } from '../features/projects/projectsSlice';
 import ProjectFormModal from '../components/modals/ProjectFormModal';
-import { Link } from 'react-router-dom';
-import { FiPlus, FiEdit2, FiTrash2, FiFolder, FiLoader } from 'react-icons/fi';
 import { useState } from 'react';
+import { timeAgo } from '@/lib/time';
+
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { EmptyState } from '@/components/product/EmptyState';
+import { PageHeader } from '@/components/product/PageHeader';
+import { UserAvatarGroup } from '@/components/product/UserAvatar';
 
 const Projects = () => {
   const dispatch = useDispatch();
@@ -17,6 +36,7 @@ const Projects = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [editingProject, setEditingProject] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   useEffect(() => {
     if (user?.teamId) {
@@ -36,131 +56,125 @@ const Projects = () => {
     setModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (!window.confirm('Are you sure you want to delete this project?')) return;
-    dispatch(deleteProject(id));
+  const handleDelete = async () => {
+    if (!pendingDelete) return;
+    try {
+      await dispatch(deleteProject(pendingDelete._id)).unwrap();
+      toast.success('Project deleted', {
+        description: `${pendingDelete.name} was removed.`,
+      });
+      setPendingDelete(null);
+    } catch (err) {
+      toast.error('Could not delete the project', {
+        description: typeof err === 'string' ? err : 'Check your connection and try again.',
+      });
+    }
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white">Projects</h1>
-          <p className="text-gray-500 mt-1 text-sm">
-            {projects.length} project{projects.length !== 1 ? 's' : ''} in your team
-          </p>
-        </div>
+    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
+      <PageHeader
+        title="Projects"
+        description={`${projects.length} project${projects.length !== 1 ? 's' : ''} in your team`}
+      >
         {canCreateProject && (
-          <button
-            id="new-project-btn"
-            onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white text-gray-900 hover:bg-gray-100 rounded-xl font-medium transition-all mt-4 md:mt-0 text-sm shadow-lg shadow-white/5"
-          >
-            <FiPlus className="w-4 h-4" />
-            <span>New Project</span>
-          </button>
+          <Button id="new-project-btn" onClick={openCreate}>
+            <Plus className="size-4" strokeWidth={1.75} />
+            New project
+          </Button>
         )}
-      </div>
+      </PageHeader>
 
       {error && (
-        <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-small text-destructive">
           {error}
         </div>
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-20">
-          <div className="flex flex-col items-center gap-3">
-            <FiLoader className="animate-spin text-3xl text-gray-600" />
-            <span className="text-sm text-gray-600">Loading projects...</span>
-          </div>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Card key={i}>
+              <Skeleton className="h-5 w-2/3" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-9 w-full" />
+            </Card>
+          ))}
         </div>
       ) : projects.length === 0 ? (
-        <div className="text-center py-20 bg-gray-900/50 rounded-2xl border border-gray-800/50">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-800/50 flex items-center justify-center">
-            <FiFolder className="text-2xl text-gray-600" />
-          </div>
-          <h3 className="text-lg font-medium text-gray-300">No projects yet</h3>
-          <p className="text-gray-600 mt-2 text-sm max-w-md mx-auto">
-            Get started by creating your first project to organize tasks and collaborate with your team
-          </p>
+        <EmptyState
+          icon={FolderKanban}
+          title="No projects yet"
+          description="Create the first project to organize tasks and collaborate with your team."
+        >
           {canCreateProject && (
-            <button
-              onClick={openCreate}
-              className="mt-6 px-5 py-2.5 bg-white text-gray-900 hover:bg-gray-100 rounded-xl font-medium transition-all text-sm"
-            >
-              Create Your First Project
-            </button>
+            <Button onClick={openCreate}>Create your first project</Button>
           )}
-        </div>
+        </EmptyState>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => (
-            <div
+            <Card
               key={p._id}
-              className="p-5 bg-gray-900/60 rounded-2xl border border-gray-800/60 hover:border-gray-700/60 transition-all duration-200 group"
+              className="group gap-4 p-5 transition-all duration-200 ease-kiln hover:border-primary/40 hover:shadow-pop"
             >
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-white truncate">{p.name}</h3>
-                  <p className="text-gray-500 text-sm mt-1 line-clamp-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-h3 font-semibold text-foreground">{p.name}</h3>
+                  <p className="mt-1 line-clamp-2 text-small text-muted-foreground">
                     {p.description || 'No description'}
                   </p>
                 </div>
-                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                   {canEditProject && (
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => openEdit(p)}
-                      className="p-2 text-gray-500 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                      aria-label="Edit project"
                       title="Edit project"
                     >
-                      <FiEdit2 className="w-4 h-4" />
-                    </button>
+                      <Pencil className="size-4" strokeWidth={1.75} />
+                    </Button>
                   )}
                   {canDeleteProject && (
-                    <button
-                      onClick={() => handleDelete(p._id)}
-                      className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setPendingDelete(p)}
+                      aria-label="Delete project"
                       title="Delete project"
                       disabled={isMutating}
                     >
-                      <FiTrash2 className="w-4 h-4" />
-                    </button>
+                      <Trash2 className="size-4" strokeWidth={1.75} />
+                    </Button>
                   )}
                 </div>
               </div>
 
-              {p.assignedUsers && p.assignedUsers.length > 0 && (
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="flex -space-x-2">
-                    {p.assignedUsers.slice(0, 4).map(u => (
-                      <div
-                        key={u._id}
-                        className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-[10px] font-semibold text-white border-2 border-gray-900"
-                        title={u.name}
-                      >
-                        {u.name?.charAt(0)?.toUpperCase()}
-                      </div>
-                    ))}
-                    {p.assignedUsers.length > 4 && (
-                      <div className="w-7 h-7 rounded-full bg-gray-800 flex items-center justify-center text-[10px] font-medium text-gray-400 border-2 border-gray-900">
-                        +{p.assignedUsers.length - 4}
-                      </div>
-                    )}
+              <div className="flex items-center justify-between gap-2">
+                {p.assignedUsers && p.assignedUsers.length > 0 ? (
+                  <div className="flex items-center gap-2">
+                    <UserAvatarGroup users={p.assignedUsers} max={4} size="sm" />
+                    <span className="text-micro text-muted-foreground tabular-nums">
+                      {p.assignedUsers.length} member{p.assignedUsers.length !== 1 ? 's' : ''}
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-600">
-                    {p.assignedUsers.length} member{p.assignedUsers.length !== 1 ? 's' : ''}
+                ) : (
+                  <span className="text-micro text-muted-foreground">No members yet</span>
+                )}
+                {p.updatedAt && (
+                  <span className="shrink-0 text-micro text-faint">
+                    {timeAgo(p.updatedAt)}
                   </span>
-                </div>
-              )}
+                )}
+              </div>
 
-              <Link
-                to={`/project/${p._id}/kanban`}
-                className="block w-full text-center px-4 py-2.5 bg-gray-800/80 text-gray-300 hover:text-white hover:bg-gray-800 rounded-xl transition-all text-sm font-medium"
-              >
-                Open Kanban Board
-              </Link>
-            </div>
+              <Button asChild variant="secondary" className="w-full">
+                <Link to={`/project/${p._id}/kanban`}>Open board</Link>
+              </Button>
+            </Card>
           ))}
         </div>
       )}
@@ -171,6 +185,34 @@ const Projects = () => {
         mode={modalMode}
         project={editingProject}
       />
+
+      <AlertDialog
+        open={Boolean(pendingDelete)}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete
+                ? `"${pendingDelete.name}" and its tasks are removed for everyone. This can't be undone.`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep project</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault();
+                handleDelete();
+              }}
+            >
+              Delete project
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

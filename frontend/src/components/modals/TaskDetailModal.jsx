@@ -1,35 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { FiX, FiEdit2, FiCheck, FiTrash2, FiPaperclip, FiImage, FiUpload, FiCalendar, FiUser, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { Calendar, Check, ChevronLeft, ChevronRight, Image, Paperclip, Pencil, Trash2, Upload, X } from 'lucide-react';
 import { updateTask, uploadAttachments, deleteAttachment } from '../../features/tasks/tasksSlice';
 import SubtasksPanel from '../SubtasksPanel';
 import TaskCommentsPanel from '../TaskCommentsPanel';
 import ActivityFeedPanel from '../ActivityFeedPanel';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { EmptyState } from '@/components/product/EmptyState';
+import { StatusBadge } from '@/components/product/StatusBadge';
+import { UserAvatar } from '@/components/product/UserAvatar';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_FILES = 10;
 
-const priorityColors = {
-  low: 'text-gray-400 bg-gray-800',
-  medium: 'text-yellow-400 bg-yellow-500/10',
-  high: 'text-orange-400 bg-orange-500/10',
-  urgent: 'text-red-400 bg-red-500/10',
+const priorityVariants = {
+  low: 'outline',
+  medium: 'teal',
+  high: 'gilt',
+  urgent: 'rust',
 };
 
-const statusColors = {
-  'todo': 'text-gray-400 bg-gray-800',
-  'in-progress': 'text-blue-400 bg-blue-500/10',
-  'done': 'text-emerald-400 bg-emerald-500/10',
-};
-
-const statusLabels = {
-  'todo': 'To Do',
-  'in-progress': 'In Progress',
-  'done': 'Done',
+const priorityLabels = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  urgent: 'Urgent',
 };
 
 const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMembers = [] }) => {
+  void projectId;
   const dispatch = useDispatch();
   const { isMutating } = useSelector((state) => state.tasks);
   const fileInputRef = useRef(null);
@@ -223,71 +226,84 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4"
+        className="fixed inset-0 z-50 flex items-end justify-center bg-overlay backdrop-blur-[2px] sm:items-center sm:p-4"
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
         <div
-          className="w-full sm:max-w-2xl lg:max-w-4xl bg-gray-900 border border-gray-800 sm:rounded-2xl rounded-t-2xl shadow-2xl shadow-black/50 flex flex-col max-h-[92vh] sm:max-h-[88vh] animate-modalSlideIn overflow-hidden"
+          className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-xl border border-border bg-popover shadow-overlay animate-modalSlideIn sm:max-h-[88vh] sm:max-w-2xl sm:rounded-xl lg:max-w-4xl"
         >
           {/* ---- Header ---- */}
-          <div className="shrink-0 bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-3.5 sm:py-4 flex items-start justify-between gap-3 sm:gap-4">
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-popover px-4 py-3.5 sm:gap-4 sm:px-6 sm:py-4">
             <div className="flex-1 min-w-0">
               {isEditingTitle ? (
                 <div className="flex items-center gap-2">
-                  <input
+                  <Input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     onKeyDown={handleTitleKeyDown}
                     onBlur={handleSaveTitle}
-                    className="flex-1 min-w-0 text-lg sm:text-xl font-semibold bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:ring-1 focus:ring-gray-500"
+                    className="h-10 min-w-0 flex-1 font-display text-h3 font-semibold"
                     autoFocus
                   />
-                  <button onClick={handleSaveTitle} className="shrink-0 p-2 sm:p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors">
-                    <FiCheck className="w-4 h-4" />
-                  </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={handleSaveTitle}
+                    aria-label="Save title"
+                    className="shrink-0"
+                  >
+                    <Check className="size-4" strokeWidth={1.75} />
+                  </Button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 group">
-                  <h2 className="text-lg sm:text-xl font-semibold text-white truncate">{task?.title}</h2>
+                <div className="group flex items-center gap-2">
+                  <h2 className="truncate font-display text-h3 font-semibold text-foreground sm:text-h2">{task?.title}</h2>
                   <button
                     onClick={() => setIsEditingTitle(true)}
-                    className="shrink-0 p-1 text-gray-600 opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 hover:text-gray-300 transition-all"
+                    aria-label="Edit title"
+                    className="shrink-0 rounded-xs p-1 text-faint opacity-0 transition-all duration-150 ease-kiln hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none group-hover:opacity-100"
                   >
-                    <FiEdit2 className="w-3.5 h-3.5" />
+                    <Pencil className="size-3.5" strokeWidth={1.75} />
                   </button>
                 </div>
               )}
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusColors[task?.status]}`}>
-                  {statusLabels[task?.status]}
-                </span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap capitalize ${priorityColors[task?.priority]}`}>
-                  {task?.priority}
-                </span>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <StatusBadge status={task?.status} />
+                <Badge variant={priorityVariants[task?.priority] || 'outline'}>
+                  {priorityLabels[task?.priority] || task?.priority}
+                </Badge>
                 {task?.dueDate && (
-                  <span className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap">
-                    <FiCalendar className="w-3 h-3 shrink-0" />
+                  <span className="flex items-center gap-1 whitespace-nowrap text-micro text-muted-foreground">
+                    <Calendar className="size-3.5 shrink-0" strokeWidth={1.75} />
                     {formatDate(task.dueDate)}
                   </span>
                 )}
                 {assignedUser && (
-                  <span className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap">
-                    <FiUser className="w-3 h-3 shrink-0" />
+                  <span className="flex items-center gap-1.5 whitespace-nowrap text-micro text-muted-foreground">
+                    <UserAvatar name={assignedUser.name} size="xs" />
                     {assignedUser.name}
                   </span>
                 )}
               </div>
             </div>
-            <button onClick={onClose} className="shrink-0 p-2 text-gray-500 hover:text-white hover:bg-gray-800 rounded-xl transition-colors">
-              <FiX className="w-5 h-5" />
-            </button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={onClose}
+              aria-label="Close"
+              className="shrink-0"
+            >
+              <X className="size-4" strokeWidth={1.75} />
+            </Button>
           </div>
 
           {/* ---- Body (scrolls independently of header) ---- */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             {localError && (
-              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+              <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-small text-destructive">
                 {localError}
               </div>
             )}
@@ -297,75 +313,82 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
               <div className="lg:col-span-2 space-y-5 sm:space-y-6">
                 {/* Description */}
                 <section>
-                  <div className="flex items-center justify-between group mb-2">
-                    <h3 className="text-xs sm:text-sm font-semibold text-gray-400 uppercase tracking-wider">Description</h3>
+                  <div className="group mb-2 flex items-center justify-between">
+                    <h3 className="text-small font-medium text-muted-foreground">Description</h3>
                     {!isEditingDesc && (
                       <button
                         onClick={() => setIsEditingDesc(true)}
-                        className="p-1 text-gray-600 opacity-0 group-hover:opacity-100 hover:text-gray-300 transition-all"
+                        aria-label="Edit description"
+                        className="rounded-xs p-1 text-faint opacity-0 transition-all duration-150 ease-kiln hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none group-hover:opacity-100"
                       >
-                        <FiEdit2 className="w-3.5 h-3.5" />
+                        <Pencil className="size-3.5" strokeWidth={1.75} />
                       </button>
                     )}
                   </div>
                   {isEditingDesc ? (
                     <div className="space-y-2">
-                      <textarea
+                      <Textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white placeholder:text-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm resize-none"
+                        className="resize-none"
                         rows={4}
                         autoFocus
                       />
                       <div className="flex gap-2">
-                        <button
+                        <Button
+                          type="button"
+                          size="sm"
                           onClick={handleSaveDescription}
                           disabled={isMutating}
-                          className="px-3 py-2 sm:py-1.5 bg-white text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
                         >
                           Save
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
                           onClick={() => { setDescription(task.description || ''); setIsEditingDesc(false); }}
-                          className="px-3 py-2 sm:py-1.5 border border-gray-800 rounded-lg text-gray-400 hover:bg-gray-800 text-sm transition-colors"
                         >
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
-                      {task?.description || <span className="text-gray-600 italic">No description</span>}
+                    <p className="whitespace-pre-wrap text-body leading-relaxed text-foreground">
+                      {task?.description || <span className="italic text-faint">No description</span>}
                     </p>
                   )}
                 </section>
 
                 {/* Attachments Gallery */}
                 <section>
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <h3 className="text-xs sm:text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                      Attachments {totalAttachmentCount > 0 && <span className="text-gray-600">({totalAttachmentCount})</span>}
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-small font-medium text-muted-foreground">
+                      Attachments {totalAttachmentCount > 0 && <span className="text-faint">({totalAttachmentCount})</span>}
                     </h3>
                     <div className="flex items-center gap-2">
                       {selectedFiles.length > 0 && (
-                        <button
+                        <Button
+                          type="button"
+                          size="sm"
                           onClick={handleUploadFiles}
                           disabled={isMutating}
-                          className="px-3 py-2 sm:py-1.5 bg-white text-gray-900 rounded-lg text-xs sm:text-sm font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 flex items-center gap-1.5"
                         >
-                          <FiUpload className="w-3.5 h-3.5" />
+                          <Upload className="size-4" strokeWidth={1.75} />
                           <span className="hidden xs:inline">Upload</span> ({selectedFiles.length})
-                        </button>
+                        </Button>
                       )}
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon-sm"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={totalAttachmentCount >= MAX_FILES}
-                        className="p-2 sm:p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-40"
                         title="Add attachments"
+                        aria-label="Add attachments"
                       >
-                        <FiPaperclip className="w-4 h-4" />
-                      </button>
+                        <Paperclip className="size-4" strokeWidth={1.75} />
+                      </Button>
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -380,17 +403,18 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
                   {/* Pending uploads */}
                   {filePreviews.length > 0 && (
                     <div className="mb-3">
-                      <p className="text-xs text-yellow-400 mb-2">Pending upload — tap "Upload" to save</p>
+                      <p className="mb-2 text-micro text-warning">Pending upload — tap "Upload" to save</p>
                       <div className="flex flex-wrap gap-2">
                         {filePreviews.map((preview, idx) => (
-                          <div key={idx} className="relative group">
-                            <img src={preview.url} alt={preview.name} className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover border border-yellow-700/50" />
+                          <div key={idx} className="group relative">
+                            <img src={preview.url} alt={preview.name} className="size-16 rounded-md border border-warning/40 object-cover sm:size-20" />
                             <button
                               type="button"
                               onClick={() => removePendingFile(idx)}
-                              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                              aria-label={`Remove ${preview.name}`}
+                              className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-100 transition-opacity duration-150 ease-kiln hover:bg-destructive/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:opacity-0 sm:group-hover:opacity-100"
                             >
-                              <FiX className="w-3 h-3 text-white" />
+                              <X className="size-3" strokeWidth={1.75} />
                             </button>
                           </div>
                         ))}
@@ -400,34 +424,36 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
 
                   {/* Existing attachments grid */}
                   {attachments.length === 0 && filePreviews.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-gray-600">
-                      <FiImage className="w-8 h-8 mb-2" />
-                      <p className="text-sm">No attachments yet</p>
-                    </div>
+                    <EmptyState
+                      icon={Image}
+                      title="No attachments yet"
+                      className="py-8"
+                    />
                   ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
+                    <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-3 sm:gap-3 md:grid-cols-4">
                       {attachments.map((att, idx) => (
-                        <div key={att.key || idx} className="relative group">
+                        <div key={att.key || idx} className="group relative">
                           <button
                             onClick={() => setLightboxIndex(attachments.findIndex((a) => a.key === att.key))}
-                            className="w-full aspect-square rounded-xl overflow-hidden border border-gray-800 hover:border-gray-600 transition-colors"
+                            className="aspect-square w-full overflow-hidden rounded-lg border border-border transition-colors duration-150 ease-kiln hover:border-muted-foreground/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                           >
                             <img
                               src={att.url}
                               alt={att.name}
-                              className="w-full h-full object-cover"
+                              className="size-full object-cover"
                               loading="lazy"
                             />
                           </button>
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 rounded-b-xl opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                            <p className="text-[10px] text-white truncate">{att.name}</p>
-                            <p className="text-[9px] text-gray-400">{formatFileSize(att.size)}</p>
+                          <div className="absolute inset-x-0 bottom-0 rounded-b-lg bg-background/85 p-2 opacity-100 transition-opacity duration-150 ease-kiln sm:opacity-0 sm:group-hover:opacity-100">
+                            <p className="truncate text-micro text-foreground">{att.name}</p>
+                            <p className="text-micro text-muted-foreground">{formatFileSize(att.size)}</p>
                           </div>
                           <button
                             onClick={() => handleDeleteAttachment(att.key)}
-                            className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500/80 rounded-full flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                            aria-label={`Delete ${att.name}`}
+                            className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-destructive/90 text-destructive-foreground opacity-100 transition-opacity duration-150 ease-kiln hover:bg-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:opacity-0 sm:group-hover:opacity-100"
                           >
-                            <FiTrash2 className="w-3 h-3 text-white" />
+                            <Trash2 className="size-3" strokeWidth={1.75} />
                           </button>
                         </div>
                       ))}
@@ -450,43 +476,55 @@ const TaskDetailModal = ({ isOpen, onClose, task: initialTask, projectId, teamMe
       {/* Lightbox */}
       {lightboxIndex !== null && attachments[lightboxIndex] && (
         <div
-          className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-3 sm:p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-overlay p-3 backdrop-blur-[2px] sm:p-4"
           onClick={() => setLightboxIndex(null)}
         >
-          <button
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
             onClick={() => setLightboxIndex(null)}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-colors z-10"
+            aria-label="Close lightbox"
+            className="absolute right-3 top-3 z-10 shadow-pop sm:right-4 sm:top-4"
           >
-            <FiX className="w-5 h-5 sm:w-6 sm:h-6" />
-          </button>
+            <X className="size-4" strokeWidth={1.75} />
+          </Button>
 
           {lightboxIndex > 0 && (
-            <button
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
               onClick={(e) => { e.stopPropagation(); setLightboxIndex(lightboxIndex - 1); }}
-              className="absolute left-1.5 sm:left-4 p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-colors z-10"
+              aria-label="Previous image"
+              className="absolute left-1.5 z-10 shadow-pop sm:left-4"
             >
-              <FiChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-            </button>
+              <ChevronLeft className="size-5" strokeWidth={1.5} />
+            </Button>
           )}
 
           {lightboxIndex < attachments.length - 1 && (
-            <button
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
               onClick={(e) => { e.stopPropagation(); setLightboxIndex(lightboxIndex + 1); }}
-              className="absolute right-1.5 sm:right-4 p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-colors z-10"
+              aria-label="Next image"
+              className="absolute right-1.5 z-10 shadow-pop sm:right-4"
             >
-              <FiChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
-            </button>
+              <ChevronRight className="size-5" strokeWidth={1.5} />
+            </Button>
           )}
 
-          <div className="max-w-full max-h-full" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-full max-w-full" onClick={(e) => e.stopPropagation()}>
             <img
               src={attachments[lightboxIndex].url}
               alt={attachments[lightboxIndex].name}
-              className="max-w-full max-h-[75vh] sm:max-h-[85vh] object-contain rounded-lg"
+              className="max-h-[75vh] max-w-full rounded-lg object-contain sm:max-h-[85vh]"
             />
-            <p className="text-center text-xs sm:text-sm text-gray-400 mt-3 px-4">
+            <p className="mt-3 px-4 text-center text-small text-muted-foreground">
               {attachments[lightboxIndex].name} — {formatFileSize(attachments[lightboxIndex].size)}
-              <span className="text-gray-600"> ({lightboxIndex + 1} of {attachments.length})</span>
+              <span className="text-faint"> ({lightboxIndex + 1} of {attachments.length})</span>
             </p>
           </div>
         </div>

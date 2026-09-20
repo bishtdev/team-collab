@@ -1,153 +1,275 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { NavLink } from 'react-router-dom';
-import { FiHome, FiMessageSquare, FiUsers, FiFolder, FiLogOut, FiMenu, FiX, FiBell } from 'react-icons/fi';
-// import { useSocket } from '../context/SocketContext';
+import { useRef, useState } from 'react';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
+import {
+  Bell,
+  ChevronsUpDown,
+  FolderKanban,
+  LogOut,
+  Menu,
+  MessagesSquare,
+  Monitor,
+  Moon,
+  Sun,
+  UsersRound,
+} from 'lucide-react';
 import { useSelector } from 'react-redux';
+
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '@/components/theme/ThemeProvider';
+import { BrandMark } from '@/components/product/BrandMark';
+import { UserAvatar } from '@/components/product/UserAvatar';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import NotificationPanel from '../components/NotificationPanel';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
-const AppLayout = ({ children }) => {
+const NAV_ITEMS = [
+  { to: '/projects', label: 'Projects', icon: FolderKanban },
+  { to: '/chat', label: 'Chat', icon: MessagesSquare },
+  { to: '/setup-team', label: 'Team', icon: UsersRound },
+];
+
+const ROLE_VARIANT = { ADMIN: 'gilt', MANAGER: 'teal', MEMBER: 'outline' };
+
+function NavItem({ item, collapsed = false, onNavigate }) {
+  const Icon = item.icon;
+
+  const link = (
+    <NavLink
+      to={item.to}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        cn(
+          'flex items-center gap-3 rounded-md px-3 py-2 text-small font-medium transition-colors duration-150 ease-kiln',
+          collapsed && 'justify-center px-2',
+          isActive
+            ? 'bg-primary/10 text-primary'
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+        )
+      }
+    >
+      <Icon className="size-[18px] shrink-0" strokeWidth={1.75} />
+      {!collapsed && <span>{item.label}</span>}
+    </NavLink>
+  );
+
+  if (!collapsed) return link;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent side="right">{item.label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function SidebarNav({ collapsed = false, onNavigate }) {
+  return (
+    <nav className="flex flex-col gap-1">
+      {NAV_ITEMS.map((item) => (
+        <NavItem
+          key={item.to}
+          item={item}
+          collapsed={collapsed}
+          onNavigate={onNavigate}
+        />
+      ))}
+    </nav>
+  );
+}
+
+function UserMenu({ collapsed = false }) {
   const { user, logout } = useAuth();
-  // const socket = useSocket().socket;
-  const unreadCountFromRedux = useSelector((state) => state.notifications.unreadCount);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const navigate = useNavigate();
 
-  const sidebarItems = [
-    { to: '/projects', label: 'Projects', icon: <FiFolder className="w-5 h-5" /> },
-    { to: '/chat', label: 'Chat', icon: <FiMessageSquare className="w-5 h-5" /> },
-    { to: '/setup-team', label: 'Team', icon: <FiUsers className="w-5 h-5" /> },
-  ];
-
-  const getRoleBadgeColor = (role) => {
-    switch (role) {
-      case 'ADMIN': return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-      case 'MANAGER': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-      default: return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
-    }
+  const handleSignOut = async () => {
+    await logout();
+    navigate('/login', { replace: true });
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-black text-gray-100">
-      {/* Header */}
-      <header className="flex justify-between items-center px-4 py-3 border-b border-gray-800/80 bg-gray-950/90 backdrop-blur-md sticky top-0 z-30">
-        <div className="flex items-center gap-3">
-          {/* Mobile menu toggle */}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="md:hidden p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors"
-          >
-            {sidebarOpen ? <FiX className="w-5 h-5" /> : <FiMenu className="w-5 h-5" />}
-          </button>
-
-          <div className="flex items-center gap-2">
-            <div className="bg-gradient-to-br from-gray-200 to-gray-400 p-0.5 rounded-lg">
-              <div className="bg-black p-1 rounded-md">
-                <FiHome className="text-lg text-white" />
-              </div>
-            </div>
-            <span className="text-lg font-bold bg-gradient-to-r from-gray-200 to-gray-400 bg-clip-text text-transparent">
-              TeamCollab
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {user && (
-            <div className="flex items-center gap-2.5">
-              {/* Notification bell */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors relative"
-                  title="Notifications"
-                >
-                  <FiBell className="w-5 h-5" />
-                  {unreadCountFromRedux > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center leading-none min-w-[18px] min-h-[18px]">
-                      {unreadCountFromRedux > 9 ? '9+' : unreadCountFromRedux}
-                    </span>
-                  )}
-                </button>
-                <NotificationPanel isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
-              </div>
-
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm font-semibold text-white shadow-lg shadow-indigo-500/20">
-                {user.name?.charAt(0)?.toUpperCase()}
-              </div>
-              <div className="hidden md:flex flex-col">
-                <span className="text-sm font-medium text-gray-200 leading-tight">{user.name}</span>
-                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border w-fit ${getRoleBadgeColor(user.role)}`}>
-                  {user.role}
-                </span>
-              </div>
-            </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Account menu"
+          className={cn(
+            'flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors duration-150 ease-kiln hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+            collapsed && 'justify-center p-1.5'
           )}
-          <button
-            onClick={logout}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-all duration-200"
-            title="Logout"
-          >
-            <FiLogOut className="w-4 h-4" />
-            <span className="hidden sm:inline text-sm">Logout</span>
-          </button>
-        </div>
-      </header>
-
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        {/* Mobile overlay */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/60 z-20 md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        <aside
-          className={`
-            fixed md:relative z-20 md:z-0
-            w-60 md:w-16 lg:w-60 h-[calc(100vh-53px)]
-            bg-gray-950 border-r border-gray-800/80
-            transition-transform duration-200 ease-in-out
-            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-          `}
         >
-          <nav className="flex flex-col gap-1 p-3 mt-2">
-            {sidebarItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative ${
-                    isActive
-                      ? 'bg-gray-800/80 text-white'
-                      : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/40'
-                  }`
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    {isActive && (
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-white rounded-full" />
-                    )}
-                    <div className="flex-shrink-0">{item.icon}</div>
-                    <span className="md:hidden lg:inline text-sm font-medium">{item.label}</span>
-                    {/* Tooltip for collapsed sidebar */}
-                    <span className="hidden md:block lg:hidden absolute left-14 bg-gray-800 text-white text-xs py-1.5 px-3 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-gray-700 whitespace-nowrap shadow-xl">
-                      {item.label}
-                    </span>
-                  </>
-                )}
-              </NavLink>
-            ))}
-          </nav>
-        </aside>
+          <UserAvatar name={user?.name || user?.email} size="md" />
+          {!collapsed && (
+            <>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-small font-medium text-foreground">
+                  {user?.name || 'Account'}
+                </span>
+                <span className="mt-0.5 block">
+                  <Badge variant={ROLE_VARIANT[user?.role] || 'outline'}>
+                    {user?.role ? user.role.toLowerCase() : 'member'}
+                  </Badge>
+                </span>
+              </span>
+              <ChevronsUpDown className="size-4 text-faint" strokeWidth={1.75} />
+            </>
+          )}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side={collapsed ? 'right' : 'top'} align="start" className="w-56">
+        <DropdownMenuLabel>Theme</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+          <DropdownMenuRadioItem value="dark">
+            <Moon className="size-4" strokeWidth={1.75} />
+            Dark
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="light">
+            <Sun className="size-4" strokeWidth={1.75} />
+            Light
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="system">
+            <Monitor className="size-4" strokeWidth={1.75} />
+            System
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onSelect={handleSignOut}>
+          <LogOut className="size-4" strokeWidth={1.75} />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
-        {/* Main content */}
-        <main className="flex-1 overflow-auto bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
-          {children}
+function NotificationBell({ position = 'down-right' }) {
+  const unreadCount = useSelector((state) => state.notifications.unreadCount);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const anchorRef = useRef(null);
+
+  return (
+    <div className="relative" ref={anchorRef}>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setShowNotifications((open) => !open)}
+        aria-label={
+          unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'
+        }
+        title="Notifications"
+      >
+        <Bell className="size-5" strokeWidth={1.75} />
+        {unreadCount > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </Button>
+      <NotificationPanel
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        position={position}
+        ignoreRef={anchorRef}
+      />
+    </div>
+  );
+}
+
+const AppLayout = ({ children }) => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  return (
+    <div className="flex h-dvh overflow-hidden bg-background text-foreground">
+      <aside className="hidden h-full w-[248px] shrink-0 flex-col border-r border-border bg-surface lg:flex">
+        <div className="flex h-16 items-center px-5">
+          <BrandMark />
+        </div>
+        <div className="flex-1 px-3 py-2">
+          <SidebarNav />
+        </div>
+        <div className="flex items-center gap-1 px-4 pb-2">
+          <NotificationBell position="up-right" />
+          <ThemeToggle />
+        </div>
+        <div className="border-t border-border p-3">
+          <UserMenu />
+        </div>
+      </aside>
+
+      <aside className="hidden h-full w-[72px] shrink-0 flex-col items-center border-r border-border bg-surface md:flex lg:hidden">
+        <div className="flex h-16 items-center">
+          <Link
+            to="/projects"
+            className="rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <BrandMark wordmark={false} />
+          </Link>
+        </div>
+        <div className="w-full flex-1 px-2 py-2">
+          <SidebarNav collapsed />
+        </div>
+        <div className="flex flex-col items-center gap-1 px-2 pb-2">
+          <NotificationBell position="up-right" />
+          <ThemeToggle />
+        </div>
+        <div className="w-full border-t border-border p-2">
+          <UserMenu collapsed />
+        </div>
+      </aside>
+
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface/95 px-4 backdrop-blur md:hidden">
+          <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Open navigation">
+                <Menu className="size-5" strokeWidth={1.75} />
+              </Button>
+            </SheetTrigger>
+            <SheetContent
+              side="left"
+              aria-describedby={undefined}
+              className="w-[272px] gap-0 p-0"
+            >
+              <SheetTitle className="sr-only">Navigation</SheetTitle>
+              <div className="flex h-16 items-center px-5">
+                <BrandMark />
+              </div>
+              <div className="flex-1 px-3 py-2">
+                <SidebarNav onNavigate={() => setSidebarOpen(false)} />
+              </div>
+              <div className="border-t border-border p-3">
+                <UserMenu />
+              </div>
+            </SheetContent>
+          </Sheet>
+          <BrandMark />
+          <div className="ml-auto flex items-center gap-1">
+            <NotificationBell />
+            <ThemeToggle />
+          </div>
+        </header>
+
+        <main className="min-h-0 flex-1 overflow-y-auto ">
+          <div className="kiln-settle mx-auto h-full w-full max-w-[1400px]">{children}</div>
         </main>
       </div>
     </div>

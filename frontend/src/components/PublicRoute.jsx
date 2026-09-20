@@ -1,5 +1,6 @@
-import React from 'react';
 import { Navigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
+
 import { useAuth } from '../context/AuthContext';
 
 const PublicRoute = ({ children }) => {
@@ -7,11 +8,8 @@ const PublicRoute = ({ children }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
-          <span className="text-sm text-gray-500">Loading...</span>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
       </div>
     );
   }

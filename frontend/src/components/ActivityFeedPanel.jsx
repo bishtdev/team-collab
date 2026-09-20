@@ -1,6 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { Activity } from 'lucide-react';
 import { fetchActivities } from '../features/tasks/activitiesSlice';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/product/EmptyState';
 
 const ActivityFeedPanel = ({ taskId, initialPage = 1, pageSize = 20 }) => {
   const dispatch = useDispatch();
@@ -58,31 +62,40 @@ const ActivityFeedPanel = ({ taskId, initialPage = 1, pageSize = 20 }) => {
   };
 
   return (
-    <section aria-label="Task Activity Feed" className="bg-gray-900/40 p-3 sm:p-4 rounded-xl border border-gray-800/30">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Activity</h4>
-        <span className="text-xs text-gray-500 tabular-nums">{activities.length} / {pagination.total}</span>
+    <section aria-label="Task Activity Feed" className="rounded-lg border border-border bg-surface p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h4 className="text-small font-semibold text-foreground">Activity</h4>
+        <span className="text-micro tabular-nums text-faint">{activities.length} / {pagination.total}</span>
       </div>
 
-      {activityState?.error && <div className="text-xs text-red-400 mb-2 px-1">{activityState.error}</div>}
+      {activityState?.error && <div className="mb-2 text-small text-destructive">{activityState.error}</div>}
 
-      <div className="max-h-48 overflow-y-auto pr-1 space-y-2.5 scrollbar-thin">
+      <div className="max-h-48 space-y-2.5 overflow-y-auto pr-1 scrollbar-thin">
         {isLoading && activities.length === 0 ? (
-          <div className="text-xs text-gray-400 py-2">Loading activity...</div>
+          <div className="space-y-3 py-1">
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
         ) : activities.length === 0 ? (
-          <div className="text-xs text-gray-500 italic py-2">No activity yet</div>
+          <EmptyState
+            icon={Activity}
+            title="No activity yet"
+            description="Changes to this task will appear here."
+            className="border-0 bg-transparent px-4 py-6"
+          />
         ) : (
           activities.map((activity) => (
-            <div key={activity._id} className="flex items-start gap-2.5 group">
+            <div key={activity._id} className="group flex items-start gap-2.5">
               <div className="relative mt-1.5 flex-shrink-0">
-                <div className="w-2 h-2 rounded-full bg-gray-500 group-hover:bg-gray-400 transition-colors" />
+                <div className="size-2 rounded-full bg-faint transition-colors group-hover:bg-muted-foreground" />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs text-gray-300 leading-relaxed">
-                  <span className="font-medium text-white">{formatActor(activity)}</span>{' '}
-                  <span className="text-gray-400">{formatAction(activity.action)}</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-small leading-relaxed text-muted-foreground">
+                  <span className="font-medium text-foreground">{formatActor(activity)}</span>{' '}
+                  <span>{formatAction(activity.action)}</span>
                 </div>
-                <div className="text-[10px] text-gray-500 mt-0.5">{formatTime(activity.createdAt)}</div>
+                <div className="mt-0.5 text-micro tabular-nums text-faint">{formatTime(activity.createdAt)}</div>
               </div>
             </div>
           ))
@@ -90,13 +103,15 @@ const ActivityFeedPanel = ({ taskId, initialPage = 1, pageSize = 20 }) => {
       </div>
 
       {canLoadMore && (
-        <div className="mt-3 pt-2 border-t border-gray-800/50 text-center">
-          <button
-            className="text-xs text-gray-400 hover:text-white transition-colors px-3 py-1 rounded-md hover:bg-gray-800/50"
+        <div className="mt-3 border-t border-border pt-2 text-center">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => fetchPage(page + 1)}
           >
             Load more
-          </button>
+          </Button>
         </div>
       )}
     </section>

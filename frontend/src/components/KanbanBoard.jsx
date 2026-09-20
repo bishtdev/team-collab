@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchTasks, updateTask, deleteTask, optimisticUpdateStatus, revertTaskStatus } from '../features/tasks/tasksSlice';
 import { fetchTeamUsers } from '../features/projects/projectsSlice';
@@ -26,7 +26,100 @@ import { usePermissions } from '../hooks/usePermissions';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { toast } from 'sonner';
-import { FiPlus, FiUser, FiCalendar, FiEdit2, FiTrash2, FiMessageSquare, FiActivity, FiCheckSquare, FiImage, FiEye } from 'react-icons/fi';
+import {
+  Activity,
+  CalendarDays,
+  Check,
+  Eye,
+  Image as ImageIcon,
+  ListChecks,
+  MessageSquare,
+  Pencil,
+  Plus,
+  Trash2,
+  UserRound,
+  X,
+} from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { StatusDot } from '@/components/product/StatusBadge';
+import { UserAvatar } from '@/components/product/UserAvatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
+
+const statusConfig = {
+  todo: { title: 'To do' },
+  'in-progress': { title: 'In progress' },
+  done: { title: 'Done' },
+};
+
+const PRIORITY_BADGE = {
+  low: { label: 'Low', variant: 'outline' },
+  medium: { label: 'Medium', variant: 'teal' },
+  high: { label: 'High', variant: 'gilt' },
+  urgent: { label: 'Urgent', variant: 'rust' },
+};
+
+function AssigneeMenu({ task, members, onAssign }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 rounded-xs px-1 py-0.5 text-micro text-muted-foreground transition-colors duration-150 ease-kiln hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          aria-label="Change assignee"
+        >
+          {task.assignedTo ? (
+            <UserAvatar name={task.assignedTo.name} size="xs" />
+          ) : (
+            <span className="flex size-5 items-center justify-center rounded-full border border-dashed border-faint text-faint">
+              <UserRound className="size-3" strokeWidth={1.75} />
+            </span>
+          )}
+          <span>{task.assignedTo?.name || 'Unassigned'}</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+        <DropdownMenuLabel>Assign to</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => onAssign(task._id, null)}>
+          <span className="flex size-5 items-center justify-center rounded-full border border-dashed border-faint text-faint">
+            <UserRound className="size-3" strokeWidth={1.75} />
+          </span>
+          Unassigned
+          {!task.assignedTo && <Check className="ml-auto size-4" strokeWidth={1.75} />}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {members.map((member) => (
+          <DropdownMenuItem key={member._id} onSelect={() => onAssign(task._id, member._id)}>
+            <UserAvatar name={member.name} size="xs" />
+            <span className="truncate">{member.name}</span>
+            {task.assignedTo?._id === member._id && (
+              <Check className="ml-auto size-4" strokeWidth={1.75} />
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 const KanbanBoard = ({ projectId }) => {
   const dispatch = useDispatch();
@@ -36,6 +129,7 @@ const KanbanBoard = ({ projectId }) => {
   const [editingTask, setEditingTask] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [addTaskStatus, setAddTaskStatus] = useState('todo');
   const [openCommentsTaskId, setOpenCommentsTaskId] = useState(null);
   const [openActivityTaskId, setOpenActivityTaskId] = useState(null);
   const [openSubtasksTaskId, setOpenSubtasksTaskId] = useState(null);
@@ -45,23 +139,12 @@ const KanbanBoard = ({ projectId }) => {
   const [editingDueDate, setEditingDueDate] = useState(null);
   const [editDueDateValue, setEditDueDateValue] = useState('');
   const [selectedTask, setSelectedTask] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const { canCreateTask, canEditTask, canDeleteTask } = usePermissions();
   const { user } = useAuth();
   const { socket } = useSocket();
-
-  const statusConfig = useMemo(() => ({
-    todo: { title: 'To Do', dotColor: 'bg-gray-400' },
-    'in-progress': { title: 'In Progress', dotColor: 'bg-blue-400' },
-    done: { title: 'Done', dotColor: 'bg-emerald-400' }
-  }), []);
-
-  const priorityConfig = useMemo(() => ({
-    low: { label: 'Low', bg: 'bg-gray-600/30', text: 'text-gray-300', border: 'border-gray-600', dot: 'bg-gray-400' },
-    medium: { label: 'Medium', bg: 'bg-yellow-900/30', text: 'text-yellow-300', border: 'border-yellow-700', dot: 'bg-yellow-400' },
-    high: { label: 'High', bg: 'bg-orange-900/30', text: 'text-orange-300', border: 'border-orange-700', dot: 'bg-orange-400' },
-    urgent: { label: 'Urgent', bg: 'bg-red-900/30', text: 'text-red-300', border: 'border-red-700', dot: 'bg-red-400' },
-  }), []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -145,8 +228,16 @@ const KanbanBoard = ({ projectId }) => {
     }
 
     const draggedTask = tasks.find(t => t._id === active.id);
+    if (!draggedTask) {
+      setActiveTask(null);
+      return;
+    }
+
     const newStatus = over.id;
-    if (draggedTask.status === newStatus) return;
+    if (draggedTask.status === newStatus) {
+      setActiveTask(null);
+      return;
+    }
 
     const originalStatus = draggedTask.status;
     dispatch(optimisticUpdateStatus({ taskId: draggedTask._id, newStatus }));
@@ -155,14 +246,28 @@ const KanbanBoard = ({ projectId }) => {
       await dispatch(updateTask({ id: draggedTask._id, data: { status: newStatus } })).unwrap();
     } catch {
       dispatch(revertTaskStatus({ taskId: draggedTask._id, originalStatus }));
+      toast.error('Could not move the task', {
+        description: 'Check your connection and try again.',
+      });
     } finally {
       setActiveTask(null);
     }
   };
 
-  const handleDeleteTask = async (taskId) => {
-    if (!window.confirm('Delete this task?')) return;
-    dispatch(deleteTask(taskId));
+  const confirmDeleteTask = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await dispatch(deleteTask(deleteTarget._id));
+      toast.success('Task deleted');
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error('Could not delete the task', {
+        description: typeof err === 'string' ? err : 'Check your connection and try again.',
+      });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleEditTask = (task) => {
@@ -175,39 +280,48 @@ const KanbanBoard = ({ projectId }) => {
       await dispatch(updateTask({ id: taskId, data: { title: editTitle } })).unwrap();
       setEditingTask(null);
       setEditTitle('');
-    } catch {
-      // error in slice
+      toast.success('Task renamed');
+    } catch (err) {
+      toast.error('Could not rename the task', {
+        description: typeof err === 'string' ? err : 'Check your connection and try again.',
+      });
     }
   };
 
   const handleAssignTask = async (taskId, assignedTo) => {
-    dispatch(updateTask({
-      id: taskId,
-      data: { assignedTo: assignedTo || null }
-    }));
+    try {
+      await dispatch(updateTask({
+        id: taskId,
+        data: { assignedTo: assignedTo || null }
+      })).unwrap();
+    } catch (err) {
+      toast.error('Could not update the assignee', {
+        description: typeof err === 'string' ? err : 'Check your connection and try again.',
+      });
+    }
   };
 
   //to update the priority 
   const handleUpdatePriority = async (taskId, newPriority) => {
-  try {
-    await dispatch(updateTask({ id: taskId, data: { priority: newPriority } })).unwrap();
-  } catch {
-    toast.error('Failed to update priority');
-  }
-  setEditingPriority(null);
-  setEditPriorityValue('');
-};
+    try {
+      await dispatch(updateTask({ id: taskId, data: { priority: newPriority } })).unwrap();
+    } catch {
+      toast.error('Failed to update priority');
+    }
+    setEditingPriority(null);
+    setEditPriorityValue('');
+  };
 
-//to update the due date
-const handleUpdateDueDate = async (taskId, newDueDate) => {
-  try {
-    await dispatch(updateTask({ id: taskId, data: { dueDate: newDueDate || null } })).unwrap();
-  } catch {
-    toast.error('Failed to update due date');
-  }
-  setEditingDueDate(null);
-  setEditDueDateValue('');
-};
+  //to update the due date
+  const handleUpdateDueDate = async (taskId, newDueDate) => {
+    try {
+      await dispatch(updateTask({ id: taskId, data: { dueDate: newDueDate || null } })).unwrap();
+    } catch {
+      toast.error('Failed to update due date');
+    }
+    setEditingDueDate(null);
+    setEditDueDateValue('');
+  };
 
   const getTaskCount = (status) => tasks.filter(task => task.status === status).length;
 
@@ -239,21 +353,28 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
       assignedTo: newTask.assignedTo ? teamMembers.find(m => m._id === newTask.assignedTo) : null,
     };
     dispatch({ type: 'tasks/create/fulfilled', payload: populatedTask });
+    toast.success('Task created');
+  };
+
+  const openAddTask = (status = 'todo') => {
+    setAddTaskStatus(status);
+    setShowAddTaskModal(true);
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-5 py-3 border-b border-gray-800/60 bg-gray-950/50 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <h1 className="text-lg font-semibold text-white">Board</h1>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2.5">
+          <h2 className="text-h3 font-semibold text-foreground">Board</h2>
+          <span className="text-micro text-faint tabular-nums">
+            {tasks.length} task{tasks.length === 1 ? '' : 's'}
+          </span>
+        </div>
         {canCreateTask && (
-          <button
-            id="add-task-btn"
-            onClick={() => setShowAddTaskModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-gray-900 hover:bg-gray-100 rounded-xl font-medium transition-all text-sm shadow-lg shadow-white/5"
-          >
-            <FiPlus className="w-4 h-4" />
-            <span>Add Task</span>
-          </button>
+          <Button id="add-task-btn" size="sm" onClick={() => openAddTask('todo')}>
+            <Plus className="size-4" strokeWidth={1.75} />
+            New task
+          </Button>
         )}
       </div>
 
@@ -262,45 +383,60 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveTask(null)}
       >
-        <div className="flex flex-1 gap-4 overflow-x-auto p-5">
+        <div className=" flex min-h-0 flex-1 gap-4 overflow-x-auto p-4">
           {isLoading ? (
-            <div className="flex-1 flex justify-center items-center">
-              <div className="w-8 h-8 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
-            </div>
+            Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={index}
+                className="min-w-[280px] flex-1 basis-0 space-y-3 rounded-lg border border-border bg-surface/50 p-3"
+              >
+                <div className="h-5 w-24 animate-pulse rounded-md bg-accent" />
+                <div className="h-24 w-full animate-pulse rounded-lg bg-accent" />
+                <div className="h-24 w-full animate-pulse rounded-lg bg-accent" />
+              </div>
+            ))
           ) : (
             Object.entries(statusConfig).map(([statusId, status]) => (
               <Droppable
                 key={statusId}
                 id={statusId}
-                className="min-w-[300px] w-full max-w-xs"
+                className="min-w-[280px] flex-1 basis-0"
               >
                 <div className="flex flex-col h-full">
-                  <div className="flex items-center justify-between px-3 py-3 rounded-t-xl bg-gray-900/80 border border-gray-800/50 border-b-0">
+                  <div className="flex items-center justify-between border-b border-border px-3.5 py-3">
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${status.dotColor}`} />
-                      <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
+                      <StatusDot status={statusId} />
+                      <h3 className="text-small font-semibold text-foreground">
                         {status.title}
-                      </h2>
-                      <span className="bg-gray-800 text-xs font-medium px-2 py-0.5 rounded-full text-gray-500">
+                      </h3>
+                      <span className="text-micro text-faint tabular-nums">
                         {getTaskCount(statusId)}
                       </span>
                     </div>
+                    {canCreateTask && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Add task to ${status.title}`}
+                        onClick={() => openAddTask(statusId)}
+                      >
+                        <Plus className="size-4" strokeWidth={1.75} />
+                      </Button>
+                    )}
                   </div>
 
                   <SortableContext
                     items={tasks.filter(t => t.status === statusId).map(t => t._id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    <div className="flex-1 overflow-y-auto p-2 min-h-[350px] space-y-2">
+                    <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3">
                       {tasks
                         .filter(task => task.status === statusId)
                         .map(task => (
                           <Draggable key={task._id} id={task._id}>
-                            <div
-                              className="group p-3 bg-gray-800 rounded-xl border border-gray-700 hover:border-gray-600 transition-colors cursor-grab active:cursor-grabbing"
-                            >
-
+                            <Card className="gap-2 p-3.5 transition-colors duration-150 ease-kiln hover:border-primary/30">
                               <div className="flex items-start gap-2">
                                 <div className="flex-1 min-w-0">
                                   {editingTask?._id === task._id ? (
@@ -312,59 +448,57 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                         if (e.key === 'Escape') setEditingTask(null);
                                       }}
                                       onBlur={() => updateTaskTitle(task._id)}
-                                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-sm text-white focus:outline-none focus:border-gray-400"
+                                      className="w-full rounded-xs border border-input bg-input px-2 py-1 text-small text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
                                       autoFocus
                                     />
                                   ) : (
-                                    <h3 className="text-sm font-medium text-white leading-snug">
+                                    <h4 className="text-small font-medium text-foreground leading-snug">
                                       {task.title}
-                                    </h3>
+                                    </h4>
                                   )}
                                 </div>
 
-                                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                <div className="flex gap-0.5 opacity-0 transition-opacity duration-150 ease-kiln group-hover:opacity-100 shrink-0">
                                   {canEditTask && (
-                                    <button
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      aria-label={`Rename ${task.title}`}
                                       onClick={(e) => { e.stopPropagation(); handleEditTask(task); }}
-                                      className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
                                     >
-                                      <FiEdit2 className="w-3.5 h-3.5" />
-                                    </button>
+                                      <Pencil className="size-3.5" strokeWidth={1.75} />
+                                    </Button>
                                   )}
                                   {canDeleteTask && (
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handleDeleteTask(task._id); }}
-                                      className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-950 transition-colors"
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      aria-label={`Delete ${task.title}`}
+                                      className="text-muted-foreground hover:text-destructive"
+                                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(task); }}
                                     >
-                                      <FiTrash2 className="w-3.5 h-3.5" />
-                                    </button>
+                                      <Trash2 className="size-3.5" strokeWidth={1.75} />
+                                    </Button>
                                   )}
                                 </div>
                               </div>
 
                               {task.description && (
-                                <p className="mt-1.5 text-xs text-gray-400 line-clamp-2">
+                                <p className="text-small text-muted-foreground line-clamp-2">
                                   {task.description}
                                 </p>
                               )}
 
                               {/* Attachment count badge */}
                               {task.attachments && task.attachments.length > 0 && (
-                                <div className="mt-1.5 flex items-center gap-1 text-xs text-gray-400">
-                                  <FiImage className="w-3 h-3" />
+                                <div className="flex items-center gap-1.5 text-micro text-muted-foreground">
+                                  <ImageIcon className="size-3" strokeWidth={1.75} />
                                   <span>{task.attachments.length} attachment{task.attachments.length !== 1 ? 's' : ''}</span>
                                 </div>
                               )}
 
-                              {/* {subtaskSummaries[task._id] && (
-                                <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
-                                  <FiCheckSquare className="w-3 h-3" />
-                                  <span>{subtaskSummaries[task._id].completed}/{subtaskSummaries[task._id].total} subtasks</span>
-                                </div>
-                              )} */}
-
                               {task.priority || task.dueDate ? (
-                                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   {task.priority && (
                                     canEditTask && editingPriority === task._id ? (
                                       <select
@@ -379,7 +513,7 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                           if (e.key === 'Escape') { setEditingPriority(null); setEditPriorityValue(''); }
                                         }}
                                         autoFocus
-                                        className="text-xs bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-white focus:outline-none focus:border-gray-400 appearance-none"
+                                        className="h-6 appearance-none rounded-xs border border-input bg-input px-1.5 text-micro text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
                                       >
                                         <option value="low">Low</option>
                                         <option value="medium">Medium</option>
@@ -387,18 +521,22 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                         <option value="urgent">Urgent</option>
                                       </select>
                                     ) : (
-                                      <span
+                                      <button
+                                        type="button"
+                                        disabled={!canEditTask}
+                                        title={canEditTask ? 'Change priority' : undefined}
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           if (!canEditTask) return;
                                           setEditingPriority(task._id);
                                           setEditPriorityValue(task.priority);
                                         }}
-                                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded border cursor-pointer transition-colors ${priorityConfig[task.priority]?.bg} ${priorityConfig[task.priority]?.text} ${priorityConfig[task.priority]?.border} hover:opacity-80`}
+                                        className="rounded-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                       >
-                                        <span className={`w-1.5 h-1.5 rounded-full ${priorityConfig[task.priority]?.dot}`} />
-                                        {priorityConfig[task.priority]?.label}
-                                      </span>
+                                        <Badge variant={PRIORITY_BADGE[task.priority]?.variant || 'outline'}>
+                                          {PRIORITY_BADGE[task.priority]?.label || task.priority}
+                                        </Badge>
+                                      </button>
                                     )
                                   )}
 
@@ -418,32 +556,37 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                             if (e.key === 'Escape') { setEditingDueDate(null); setEditDueDateValue(''); }
                                           }}
                                           autoFocus
-                                          className="text-xs bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-white focus:outline-none focus:border-gray-400"
+                                          className="h-6 rounded-xs border border-input bg-input px-1.5 text-micro text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
                                         />
                                         <button
                                           onClick={() => handleUpdateDueDate(task._id, null)}
-                                          className="text-xs text-gray-500 hover:text-gray-300 px-1"
+                                          className="rounded-xs p-0.5 text-faint transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                           title="Clear due date"
+                                          aria-label="Clear due date"
                                         >
-                                          ✕
+                                          <X className="size-3.5" strokeWidth={1.75} />
                                         </button>
                                       </div>
                                     ) : (
-                                      <span
+                                      <button
+                                        type="button"
+                                        disabled={!canEditTask}
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           if (!canEditTask) return;
                                           setEditingDueDate(task._id);
                                           setEditDueDateValue(new Date(task.dueDate).toISOString().split('T')[0]);
                                         }}
-                                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded border cursor-pointer transition-colors hover:opacity-80 ${task.dueDate < new Date().toISOString().split('T')[0]
-                                            ? 'text-red-400 bg-red-950 border-red-900'
-                                            : 'text-gray-400 bg-gray-900 border-gray-700'
-                                          }`}
+                                        className={cn(
+                                          'inline-flex items-center gap-1 rounded-xs border px-1.5 py-0.5 text-micro font-medium transition-colors duration-150 ease-kiln focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                                          task.dueDate < new Date().toISOString().split('T')[0]
+                                            ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                                            : 'border-border bg-surface text-muted-foreground hover:text-foreground'
+                                        )}
                                       >
-                                        <FiCalendar className="w-3 h-3 shrink-0" />
+                                        <CalendarDays className="size-3 shrink-0" strokeWidth={1.75} />
                                         {formatDate(task.dueDate)}
-                                      </span>
+                                      </button>
                                     )
                                   ) : canEditTask && editingDueDate === task._id ? (
                                     <div className="flex items-center gap-1">
@@ -460,123 +603,134 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
                                           if (e.key === 'Escape') { setEditingDueDate(null); setEditDueDateValue(''); }
                                         }}
                                         autoFocus
-                                        className="text-xs bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-white focus:outline-none focus:border-gray-400"
+                                        className="h-6 rounded-xs border border-input bg-input px-1.5 text-micro text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
                                       />
                                     </div>
                                   ) : canEditTask ? (
                                     <button
+                                      type="button"
                                       onClick={(e) => { e.stopPropagation(); setEditingDueDate(task._id); setEditDueDateValue(''); }}
-                                      className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded border border-dashed border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500 transition-colors"
+                                      className="inline-flex items-center gap-1 rounded-xs border border-dashed border-border px-1.5 py-0.5 text-micro font-medium text-faint transition-colors duration-150 ease-kiln hover:border-faint hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                     >
-                                      <FiCalendar className="w-3 h-3 shrink-0" />
+                                      <CalendarDays className="size-3 shrink-0" strokeWidth={1.75} />
                                       Add date
                                     </button>
                                   ) : null}
                                 </div>
                               ) : canEditTask ? (
-                                <div className="mt-2">
+                                <div>
                                   <button
+                                    type="button"
                                     onClick={(e) => { e.stopPropagation(); setEditingDueDate(task._id); setEditDueDateValue(''); }}
-                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded border border-dashed border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500 transition-colors"
+                                    className="inline-flex items-center gap-1 rounded-xs border border-dashed border-border px-1.5 py-0.5 text-micro font-medium text-faint transition-colors duration-150 ease-kiln hover:border-faint hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                   >
-                                    <FiCalendar className="w-3 h-3 shrink-0" />
+                                    <CalendarDays className="size-3 shrink-0" strokeWidth={1.75} />
                                     Add date
                                   </button>
                                 </div>
                               ) : null}
 
-                              <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
                                 {canEditTask ? (
-                                  <select
-                                    value={task.assignedTo?._id || ''}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onChange={(e) => handleAssignTask(task._id, e.target.value || null)}
-                                    className="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-400 focus:outline-none focus:border-gray-400 appearance-none max-w-[140px]"
-                                  >
-                                    <option value="">Unassigned</option>
-                                    {teamMembers.map(member => (
-                                      <option key={member._id} value={member._id}>{member.name}</option>
-                                    ))}
-                                  </select>
+                                  <AssigneeMenu
+                                    task={task}
+                                    members={teamMembers}
+                                    onAssign={handleAssignTask}
+                                  />
                                 ) : task.assignedTo ? (
-                                  <span className="flex items-center gap-1 text-xs text-gray-400">
-                                    <FiUser className="w-3 h-3 shrink-0" />
+                                  <span className="flex items-center gap-1.5 text-micro text-muted-foreground">
+                                    <UserAvatar name={task.assignedTo.name} size="xs" />
                                     {task.assignedTo.name}
                                   </span>
-                                ) : <div />}
+                                ) : (
+                                  <span className="flex items-center gap-1 text-micro text-faint">
+                                    <UserRound className="size-3" strokeWidth={1.75} />
+                                    Unassigned
+                                  </span>
+                                )}
 
                                 {task.createdAt && (
-                                  <span className="flex items-center gap-1 text-[10px] text-gray-600 shrink-0">
-                                    <FiCalendar className="w-3 h-3" />
+                                  <span className="text-micro text-faint shrink-0">
                                     {formatDate(task.createdAt)}
                                   </span>
                                 )}
                               </div>
 
-                              <div className="mt-2 pt-2 border-t border-gray-700 flex gap-2 flex-wrap">
-                                <button
+                              <div className="flex flex-wrap gap-1.5 border-t border-border pt-2.5">
+                                <Button
                                   type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 gap-1.5 px-2 text-micro"
+                                  title="View details"
                                   onClick={(e) => { e.stopPropagation(); setSelectedTask(task); }}
-                                  className="text-xs text-gray-400 hover:text-white bg-transparent border border-gray-700 hover:border-gray-500 hover:bg-gray-700/50 rounded-md px-2 py-1 transition-colors flex items-center gap-1"
                                 >
-                                  <FiEye className="w-3 h-3" title='view details' />
-                                  
-                                </button>
-                                <button
+                                  <Eye className="size-3" strokeWidth={1.75} />
+                                  Details
+                                </Button>
+                                <Button
                                   type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 gap-1.5 px-2 text-micro"
                                   onClick={(e) => { e.stopPropagation(); toggleComments(task._id); }}
-                                  className="text-xs text-gray-400 hover:text-gray-200 bg-transparent border border-gray-700 hover:border-gray-500 rounded-md px-2 py-1 transition-colors flex items-center gap-1"
                                 >
-                                  <FiMessageSquare className="w-3 h-3" />
+                                  <MessageSquare className="size-3" strokeWidth={1.75} />
                                   {openCommentsTaskId === task._id ? 'Hide' : 'Comments'}
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                   type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 gap-1.5 px-2 text-micro"
                                   onClick={(e) => { e.stopPropagation(); toggleActivity(task._id); }}
-                                  className="text-xs text-gray-400 hover:text-gray-200 bg-transparent border border-gray-700 hover:border-gray-500 rounded-md px-2 py-1 transition-colors flex items-center gap-1"
                                 >
-                                  <FiActivity className="w-3 h-3" />
+                                  <Activity className="size-3" strokeWidth={1.75} />
                                   {openActivityTaskId === task._id ? 'Hide' : 'Activity'}
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                   type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 gap-1.5 px-2 text-micro"
                                   onClick={(e) => { e.stopPropagation(); toggleSubtasks(task._id); }}
-                                  className="text-xs text-gray-400 hover:text-gray-200 bg-transparent border border-gray-700 hover:border-gray-500 rounded-md px-2 py-1 transition-colors flex items-center gap-1"
                                 >
-                                  <FiCheckSquare className="w-3 h-3" />
-                                  {openSubtasksTaskId === task._id ? 'Hide' : `Subtasks${subtaskSummaries[task._id] ? ` (${subtaskSummaries[task._id].completed}/${subtaskSummaries[task._id].total})` : ''}`}
-                                </button>
+                                  <ListChecks className="size-3" strokeWidth={1.75} />
+                                  {openSubtasksTaskId === task._id
+                                    ? 'Hide'
+                                    : `Subtasks${subtaskSummaries[task._id] ? ` (${subtaskSummaries[task._id].completed}/${subtaskSummaries[task._id].total})` : ''}`}
+                                </Button>
                               </div>
 
                               {openCommentsTaskId === task._id && (
-                                <div className="mt-2">
+                                <div className="mt-1">
                                   <TaskCommentsPanel taskId={task._id} />
                                 </div>
                               )}
 
                               {openActivityTaskId === task._id && (
-                                <div className="mt-2">
+                                <div className="mt-1">
                                   <ActivityFeedPanel taskId={task._id} />
                                 </div>
                               )}
 
                               {openSubtasksTaskId === task._id && (
-                                <div className="mt-2">
+                                <div className="mt-1">
                                   <SubtasksPanel
                                     taskId={task._id}
                                     onSummaryChange={(total, completed) => handleSubtaskSummary(task._id, total, completed)}
                                   />
                                 </div>
                               )}
-                            </div>
+                            </Card>
                           </Draggable>
                         ))
                       }
 
                       {tasks.filter(task => task.status === statusId).length === 0 && (
-                        <div className="flex flex-col items-center justify-center h-full py-10 text-gray-600">
-                          <p className="text-sm">No tasks</p>
-                          <p className="text-xs mt-0.5">Drag tasks here</p>
+                        <div className="flex h-full flex-col items-center justify-center gap-1 py-10 text-center">
+                          <p className="text-small text-faint">No tasks</p>
+                          <p className="text-micro text-faint">Drag tasks here</p>
                         </div>
                       )}
                     </div>
@@ -589,14 +743,18 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
 
         <DragOverlay dropAnimation={defaultDropAnimation}>
           {activeTask ? (
-            <div className="p-3.5 bg-gray-800 rounded-xl border-2 border-gray-600 w-72 shadow-2xl">
-              <div className="font-medium text-sm text-white mb-1">{activeTask.title}</div>
+            <div className="w-72 rotate-1 rounded-lg border border-primary/30 bg-surface p-3.5 shadow-pop">
+              <div className="text-small font-medium text-foreground">
+                {activeTask.title}
+              </div>
               {activeTask.description && (
-                <div className="text-xs text-gray-400">{activeTask.description}</div>
+                <div className="mt-1 line-clamp-2 text-small text-muted-foreground">
+                  {activeTask.description}
+                </div>
               )}
               {activeTask.assignedTo && (
-                <div className="text-xs text-blue-400 mt-1 flex items-center gap-1">
-                  <FiUser className="w-3 h-3" />
+                <div className="mt-2 flex items-center gap-1.5 text-micro text-muted-foreground">
+                  <UserAvatar name={activeTask.assignedTo.name} size="xs" />
                   {activeTask.assignedTo.name}
                 </div>
               )}
@@ -611,6 +769,7 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
         projectId={projectId}
         teamMembers={teamMembers}
         onSuccess={handleTaskCreated}
+        defaultStatus={addTaskStatus}
       />
 
       <TaskDetailModal
@@ -620,6 +779,36 @@ const handleUpdateDueDate = async (taskId, newDueDate) => {
         projectId={projectId}
         teamMembers={teamMembers}
       />
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.title} will be removed for everyone. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep task</AlertDialogCancel>
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={(event) => {
+                event.preventDefault();
+                confirmDeleteTask();
+              }}
+              className="inline-flex h-9 items-center justify-center rounded-md bg-destructive px-4 text-small font-medium text-destructive-foreground transition-colors duration-150 ease-kiln hover:bg-destructive/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+            >
+              {deleting ? 'Deleting…' : 'Delete task'}
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

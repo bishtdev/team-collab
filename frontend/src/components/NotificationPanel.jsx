@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import { Bell, CheckCheck, ExternalLink, Trash2, X } from 'lucide-react';
 import {
   fetchNotifications,
   markAsRead,
@@ -8,9 +9,11 @@ import {
   deleteNotification,
   clearAllNotifications
 } from '../features/notifications/notificationsSlice';
-import { FiBell, FiCheck, FiExternalLink, FiTrash2, FiX } from 'react-icons/fi';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/product/EmptyState';
+import { cn } from '@/lib/utils';
 
-const NotificationPanel = ({ isOpen, onClose }) => {
+const NotificationPanel = ({ isOpen, onClose, position = 'down-right', ignoreRef }) => {
   const dispatch = useDispatch();
   const { items: notifications, unreadCount } = useSelector(state => state.notifications);
   const navigate = useNavigate();
@@ -25,13 +28,15 @@ const NotificationPanel = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (e) => {
-      if (panelRef.current && !panelRef.current.contains(e.target)) {
+      const insidePanel = panelRef.current && panelRef.current.contains(e.target);
+      const insideAnchor = ignoreRef?.current && ignoreRef.current.contains(e.target);
+      if (!insidePanel && !insideAnchor) {
         onClose();
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, ignoreRef]);
 
   const handleNavigate = (notification) => {
     if (notification.taskId) {
@@ -63,81 +68,96 @@ const NotificationPanel = ({ isOpen, onClose }) => {
   return (
     <div
       ref={panelRef}
-      className="absolute right-0 top-full mt-2 w-80 bg-gray-900 border border-gray-800 rounded-xl shadow-2xl shadow-black/50 z-50 overflow-hidden"
+      className={cn(
+        'absolute z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-pop',
+        position === 'up-right' ? 'bottom-full left-0 mb-2' : 'right-0 top-full mt-2'
+      )}
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <FiBell className="text-gray-400 w-4 h-4" />
-          <span className="text-sm font-semibold text-white">Notifications</span>
+          <Bell className="size-4 text-muted-foreground" strokeWidth={1.75} />
+          <span className="text-small font-semibold text-foreground">Notifications</span>
           {unreadCount > 0 && (
-            <span className="bg-red-500/10 text-red-400 text-[10px] font-medium px-1.5 py-0.5 rounded-full border border-red-500/20">
+            <span className="rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-micro font-medium tabular-nums text-primary">
               {unreadCount}
             </span>
           )}
         </div>
         <div className="flex items-center gap-1">
           {unreadCount > 0 && (
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => dispatch(markAllAsRead())}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1 px-1.5 py-1 rounded hover:bg-gray-800"
               title="Mark all as read"
+              aria-label="Mark all as read"
             >
-              <FiCheck className="w-3 h-3" />
-            </button>
+              <CheckCheck className="size-4" strokeWidth={1.75} />
+            </Button>
           )}
           {notifications.length > 0 && (
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => dispatch(clearAllNotifications())}
-              className="text-xs text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1 px-1.5 py-1 rounded hover:bg-red-950/30"
+              className="hover:bg-destructive/10 hover:text-destructive"
               title="Clear all notifications"
+              aria-label="Clear all notifications"
             >
-              <FiTrash2 className="w-3 h-3" />
-            </button>
+              <Trash2 className="size-4" strokeWidth={1.75} />
+            </Button>
           )}
         </div>
       </div>
 
       <div className="max-h-96 overflow-y-auto scrollbar-thin">
         {notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-gray-600">
-            <FiBell className="w-8 h-8 mb-2 opacity-50" />
-            <p className="text-sm">No notifications yet</p>
-          </div>
+          <EmptyState
+            icon={Bell}
+            title="No notifications yet"
+            description="Updates about your tasks will land here."
+            className="rounded-none border-0 bg-transparent px-6 py-10"
+          />
         ) : (
-          notifications.map((n) => (
-            <div
-              key={n._id}
-              className={`group relative border-b border-gray-800/50 ${
-                !n.read ? 'bg-gray-800/30' : ''
-              }`}
-            >
-              <button
-                onClick={() => handleNavigate(n)}
-                className="w-full text-left px-4 py-3 hover:bg-gray-800/50 transition-colors flex gap-3"
+          <div className="divide-y divide-border">
+            {notifications.map((n) => (
+              <div
+                key={n._id}
+                className={`group relative ${!n.read ? 'bg-primary/5' : ''}`}
               >
-                <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${
-                  n.read ? 'bg-transparent' : 'bg-blue-500'
-                }`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{n.title}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{n.message}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] text-gray-600">{formatTime(n.createdAt)}</span>
-                    {n.taskId && (
-                      <FiExternalLink className="w-2.5 h-2.5 text-gray-600" />
-                    )}
+                <button
+                  type="button"
+                  onClick={() => handleNavigate(n)}
+                  className="flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-accent"
+                >
+                  <span className={`mt-1.5 size-2 shrink-0 rounded-full ${
+                    n.read ? 'bg-transparent' : 'bg-primary'
+                  }`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-small font-medium text-foreground">{n.title}</p>
+                    <p className="mt-0.5 line-clamp-2 text-small text-muted-foreground">{n.message}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-micro tabular-nums text-faint">{formatTime(n.createdAt)}</span>
+                      {n.taskId && (
+                        <ExternalLink className="size-3.5 text-faint" strokeWidth={1.75} />
+                      )}
+                    </div>
                   </div>
-                </div>
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); dispatch(deleteNotification(n._id)); }}
-                className="absolute top-2 right-2 p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-all"
-                title="Remove notification"
-              >
-                <FiX className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); dispatch(deleteNotification(n._id)); }}
+                  className="absolute top-2 right-2 rounded-xs p-1 text-faint opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                  title="Remove notification"
+                  aria-label="Remove notification"
+                >
+                  <X className="size-3.5" strokeWidth={1.75} />
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

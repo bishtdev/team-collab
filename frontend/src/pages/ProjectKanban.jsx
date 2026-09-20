@@ -6,9 +6,11 @@ const ProjectKanban = () => {
   const { id: projectId } = useParams();
 
   return (
-    <div>
+    <div className="flex h-full min-h-0 flex-col">
       <ProjectHeader projectId={projectId} />
-      <KanbanBoard projectId={projectId} />
+      <div className="min-h-0 flex-1">
+        <KanbanBoard projectId={projectId} />
+      </div>
     </div>
   );
 };

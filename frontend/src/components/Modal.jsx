@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { FiX } from 'react-icons/fi';
+import { X } from 'lucide-react';
 
 const sizeClasses = {
   sm: 'max-w-sm',
@@ -49,34 +49,35 @@ const Modal = ({
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4 backdrop-blur-[2px] animate-fadeIn"
     >
       <div
         ref={contentRef}
-        className={`${sizeClasses[size]} w-full bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl shadow-black/50 animate-modalSlideIn`}
+        className={`${sizeClasses[size]} w-full rounded-xl border border-border bg-popover shadow-overlay animate-modalSlideIn`}
       >
         {/* Header */}
-        <div className="flex items-start justify-between p-5 pb-0">
-          <div>
-            <h3 className="text-lg font-semibold text-white">{title}</h3>
+        <div className="flex items-start justify-between gap-4 p-6 pb-0">
+          <div className="min-w-0">
+            <h3 className="font-display text-h2 font-semibold text-foreground">{title}</h3>
             {subtitle && (
-              <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+              <p className="mt-1 text-small text-muted-foreground">{subtitle}</p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-lg transition-colors -mt-1 -mr-1"
+            aria-label="Close"
+            className="-mr-1 -mt-1 rounded-xs p-1 text-muted-foreground transition-colors duration-150 ease-kiln hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover focus-visible:outline-none"
           >
-            <FiX className="w-4 h-4" />
+            <X className="size-4" strokeWidth={1.75} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-5">{children}</div>
+        <div className="px-6 py-5">{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="px-5 pb-5 pt-0 flex justify-end gap-2">
+          <div className="flex justify-end gap-2 px-6 pb-6 pt-0">
             {footer}
           </div>
         )}

@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { toast } from 'sonner';
 import Modal from '../Modal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { createTeam } from '../../features/teams/teamsSlice';
 
 const CreateTeamModal = ({ isOpen, onClose, onSuccess }) => {
@@ -28,6 +33,7 @@ const CreateTeamModal = ({ isOpen, onClose, onSuccess }) => {
 
     try {
       await dispatch(createTeam({ name, description })).unwrap();
+      toast.success('Team created', { description: `${name} is ready.` });
       onSuccess?.();
       onClose();
     } catch {
@@ -46,62 +52,56 @@ const CreateTeamModal = ({ isOpen, onClose, onSuccess }) => {
       size="md"
     >
       {displayError && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-small text-destructive">
           {displayError}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">
-            Team Name <span className="text-red-400">*</span>
-          </label>
-          <input
+          <Label htmlFor="create-team-name" className="mb-1.5">
+            Team Name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="create-team-name"
             type="text"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white placeholder:text-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm"
             placeholder="e.g., Engineering Team"
             autoFocus
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">
+          <Label htmlFor="create-team-description" className="mb-1.5">
             Description
-          </label>
-          <textarea
+          </Label>
+          <Textarea
+            id="create-team-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white placeholder:text-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm resize-none"
+            className="resize-none"
             placeholder="What does this team work on?"
             rows={3}
           />
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={onClose}
-            className="px-4 py-2.5 border border-gray-800 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-gray-300 transition-colors text-sm"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
+            loading={isMutating}
             disabled={isMutating}
-            className="px-5 py-2.5 bg-white text-gray-900 font-medium rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
           >
-            {isMutating ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin" />
-                <span>Creating...</span>
-              </>
-            ) : (
-              <span>Create Team</span>
-            )}
-          </button>
+            {isMutating ? 'Creating…' : 'Create team'}
+          </Button>
         </div>
       </form>
     </Modal>

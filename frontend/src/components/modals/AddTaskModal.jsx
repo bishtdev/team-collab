@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { FiPaperclip, FiX } from 'react-icons/fi';
+import { Paperclip, X } from 'lucide-react';
 import Modal from '../Modal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { createTask, uploadAttachments } from '../../features/tasks/tasksSlice';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_FILES = 10;
 
-const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess }) => {
+const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess, defaultStatus = 'todo' }) => {
   const dispatch = useDispatch();
   const { isMutating } = useSelector((state) => state.tasks);
   const fileInputRef = useRef(null);
@@ -104,7 +108,7 @@ const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess 
       const result = await dispatch(createTask({
         title,
         description,
-        status: 'todo',
+        status: defaultStatus || 'todo',
         projectId,
         assignedTo: assignedTo || null,
         dueDate,
@@ -144,48 +148,50 @@ const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess 
       size="md"
     >
       {error && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-small text-destructive">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">
-            Title <span className="text-red-400">*</span>
-          </label>
-          <input
+          <Label htmlFor="add-task-title" className="mb-1.5">
+            Title <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="add-task-title"
             type="text"
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white placeholder:text-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm"
             placeholder="e.g., Design landing page header"
             autoFocus
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">
+          <Label htmlFor="add-task-description" className="mb-1.5">
             Description
-          </label>
-          <textarea
+          </Label>
+          <Textarea
+            id="add-task-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white placeholder:text-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm resize-none"
+            className="resize-none"
             placeholder="Add more details..."
             rows={3}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">
+          <Label htmlFor="add-task-assignee" className="mb-1.5">
             Assign To
-          </label>
+          </Label>
           <select
+            id="add-task-assignee"
             value={assignedTo}
             onChange={(e) => setAssignedTo(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm appearance-none"
+            className="h-9 w-full rounded-md border border-input bg-input px-3 text-small text-foreground transition-[border-color,box-shadow] duration-150 ease-kiln outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
           >
             <option value="">Unassigned</option>
             {teamMembers.map((member) => (
@@ -197,25 +203,26 @@ const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">
+          <Label htmlFor="add-task-due-date" className="mb-1.5">
             Due Date
-          </label>
-          <input
+          </Label>
+          <Input
+            id="add-task-due-date"
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">
+          <Label htmlFor="add-task-priority" className="mb-1.5">
             Priority
-          </label>
+          </Label>
           <select
+            id="add-task-priority"
             value={priority}
             onChange={(e) => setPriority(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm appearance-none"
+            className="h-9 w-full rounded-md border border-input bg-input px-3 text-small text-foreground transition-[border-color,box-shadow] duration-150 ease-kiln outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
           >
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -226,28 +233,29 @@ const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess 
 
         {/* ---- Attachments Section ---- */}
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">
-            Attachments {selectedFiles.length > 0 && <span className="text-gray-600">({selectedFiles.length}/{MAX_FILES})</span>}
-          </label>
+          <Label className="mb-1.5">
+            Attachments {selectedFiles.length > 0 && <span className="text-faint">({selectedFiles.length}/{MAX_FILES})</span>}
+          </Label>
 
           {/* File Preview Thumbnails */}
           {filePreviews.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
+            <div className="mb-2 flex flex-wrap gap-2">
               {filePreviews.map((preview, idx) => (
-                <div key={idx} className="relative group">
+                <div key={idx} className="group relative">
                   <img
                     src={preview.url}
                     alt={preview.name}
-                    className="w-16 h-16 rounded-lg object-cover border border-gray-700"
+                    className="size-16 rounded-md border border-border object-cover"
                   />
                   <button
                     type="button"
                     onClick={() => removeFile(idx)}
-                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label={`Remove ${preview.name}`}
+                    className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity duration-150 ease-kiln group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
-                    <FiX className="w-3 h-3 text-white" />
+                    <X className="size-3" strokeWidth={1.75} />
                   </button>
-                  <div className="absolute -bottom-1 left-0 right-0 text-[9px] text-center text-gray-400 truncate px-1 bg-gray-900/80 rounded-b-lg">
+                  <div className="absolute inset-x-0 -bottom-1 truncate rounded-b-md bg-popover/90 px-1 text-center text-micro text-muted-foreground">
                     {formatFileSize(preview.file.size)}
                   </div>
                 </div>
@@ -260,9 +268,9 @@ const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess 
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={selectedFiles.length >= MAX_FILES}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-300 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-small text-muted-foreground transition-colors duration-150 ease-kiln hover:border-faint hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <FiPaperclip className="w-4 h-4" />
+            <Paperclip className="size-4" strokeWidth={1.75} />
             {selectedFiles.length >= MAX_FILES ? 'Max files reached' : 'Add images (JPEG, PNG, GIF, WebP, SVG)'}
           </button>
           <input
@@ -276,27 +284,20 @@ const AddTaskModal = ({ isOpen, onClose, projectId, teamMembers = [], onSuccess 
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={onClose}
-            className="px-4 py-2.5 border border-gray-800 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-gray-300 transition-colors text-sm"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
+            loading={isMutating}
             disabled={isMutating}
-            className="px-5 py-2.5 bg-white text-gray-900 font-medium rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
           >
-            {isMutating ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin" />
-                <span>Creating...</span>
-              </>
-            ) : (
-              <span>Create Task</span>
-            )}
-          </button>
+            {isMutating ? 'Creating…' : 'Create task'}
+          </Button>
         </div>
       </form>
     </Modal>

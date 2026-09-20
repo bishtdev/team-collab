@@ -1,0 +1,71 @@
+/*
+ * Kiln — primitive ramps.
+ * Raw material. Components must NOT reference these directly; they exist only
+ * to feed the semantic tokens in theme.css. Change a ramp here and the whole
+ * product shifts.
+ */
+
+:root {
+  /* Umber — warm neutral, dark surfaces */
+  --umber-1000: #100e0a;
+  --umber-950: #16130e;
+  --umber-900: #1b1812;
+  --umber-850: #221e17;
+  --umber-800: #2a251c;
+  --umber-700: #3a3327;
+  --umber-600: #554c3b;
+  --umber-500: #6f6552;
+  --umber-400: #938874;
+  --umber-300: #b4a992;
+  --umber-200: #d3c9b2;
+  --umber-100: #eae2d0;
+
+  /* Oat — warm neutral, light surfaces */
+  --oat-50: #fdfbf6;
+  --oat-100: #f7f2e7;
+  --oat-200: #efe7d8;
+  --oat-300: #e3d8c3;
+  --oat-400: #cfc2a8;
+  --oat-500: #b0a287;
+  --oat-600: #8a7d63;
+  --oat-700: #635842;
+  --oat-800: #423a2b;
+  --oat-900: #2a241a;
+
+  /* Moss — brand primary */
+  --moss-100: #e1e8d2;
+  --moss-200: #c8d5ab;
+  --moss-300: #aec183;
+  --moss-400: #94ab5f;
+  --moss-500: #7a9444;
+  --moss-600: #617a35;
+  --moss-700: #4a5f28;
+  --moss-800: #3a4b20;
+
+  /* Gilt — secondary accent (ochre gold) */
+  --gilt-200: #f0dfae;
+  --gilt-300: #e7c878;
+  --gilt-400: #d9b45b;
+  --gilt-500: #c29a3b;
+  --gilt-600: #9e7a22;
+  --gilt-700: #7c5e14;
+
+  /* Rust — danger */
+  --rust-300: #efb0a6;
+  --rust-400: #e08276;
+  --rust-500: #c95e50;
+  --rust-600: #a63d2f;
+  --rust-700: #823025;
+
+  /* Teal — info (dusty) */
+  --teal-300: #a8c6d1;
+  --teal-400: #7ca3b2;
+  --teal-500: #56808f;
+  --teal-600: #33616f;
+
+  /* Shape and motion constants */
+  --radius: 12px;
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+}

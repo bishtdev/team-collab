@@ -1,7 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { toast } from 'sonner';
 import Modal from '../Modal';
 import { addUserToTeam } from '../../features/teams/teamsSlice';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { UserAvatar } from '@/components/product/UserAvatar';
 
 const AddUserToTeamModal = ({ isOpen, onClose, team, allUsers = [], teamMembers = [], onSuccess }) => {
   const dispatch = useDispatch();
@@ -46,6 +59,7 @@ const AddUserToTeamModal = ({ isOpen, onClose, team, allUsers = [], teamMembers 
 
     try {
       await dispatch(addUserToTeam({ teamId: team._id, data: payload })).unwrap();
+      toast.success('Member added');
       onSuccess?.();
       onClose();
     } catch {
@@ -59,81 +73,77 @@ const AddUserToTeamModal = ({ isOpen, onClose, team, allUsers = [], teamMembers 
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Add User to ${team?.name || 'Team'}`}
+      title={`Add user to ${team?.name || 'Team'}`}
       subtitle="Add an existing user or create a new one"
       size="md"
     >
       {displayError && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-small text-destructive">
           {displayError}
         </div>
       )}
 
-      <div className="flex p-1 bg-gray-800/60 rounded-xl mb-4">
-        <button
+      <div className="mb-4 flex gap-1 rounded-md border border-border bg-surface p-1">
+        <Button
           type="button"
+          variant={mode === 'existing' ? 'secondary' : 'ghost'}
+          size="sm"
           onClick={() => { setMode('existing'); setLocalError(''); }}
-          className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-            mode === 'existing'
-              ? 'bg-gray-700 text-white shadow'
-              : 'text-gray-500 hover:text-gray-300'
-          }`}
+          className="flex-1"
         >
-          Existing User
-        </button>
-        <button
+          Existing user
+        </Button>
+        <Button
           type="button"
+          variant={mode === 'new' ? 'secondary' : 'ghost'}
+          size="sm"
           onClick={() => { setMode('new'); setLocalError(''); }}
-          className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-            mode === 'new'
-              ? 'bg-gray-700 text-white shadow'
-              : 'text-gray-500 hover:text-gray-300'
-          }`}
+          className="flex-1"
         >
-          New User
-        </button>
+          New user
+        </Button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {mode === 'existing' ? (
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1.5">Select User</label>
+            <Label htmlFor="add-user-select" className="mb-1.5">Select user</Label>
             {availableUsers.length === 0 ? (
-              <p className="text-sm text-gray-600 py-3 text-center">All users are already in this team</p>
+              <p className="py-3 text-center text-small text-faint">All users are already in this team</p>
             ) : (
-              <select
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm"
-              >
-                <option value="">Choose a user...</option>
-                {availableUsers.map(user => (
-                  <option key={user._id} value={user._id}>
-                    {user.name} ({user.email}) — {user.role}
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger id="add-user-select" className="w-full">
+                  <SelectValue placeholder="Choose a user..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableUsers.map(user => (
+                    <SelectItem key={user._id} value={user._id}>
+                      {user.name} ({user.email}) — {user.role}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </div>
         ) : (
           <>
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1.5">Name</label>
-              <input
+              <Label htmlFor="add-user-name" className="mb-1.5">Name</Label>
+              <Input
+                id="add-user-name"
                 type="text"
                 value={newUserName}
                 onChange={(e) => setNewUserName(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white placeholder:text-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm"
                 placeholder="Enter user name"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1.5">Email</label>
-              <input
+              <Label htmlFor="add-user-email" className="mb-1.5">Email</Label>
+              <Input
+                id="add-user-email"
                 type="email"
                 value={newUserEmail}
                 onChange={(e) => setNewUserEmail(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-800 bg-gray-800/50 text-white placeholder:text-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-none transition-colors text-sm"
                 placeholder="Enter email address"
               />
             </div>
@@ -142,17 +152,13 @@ const AddUserToTeamModal = ({ isOpen, onClose, team, allUsers = [], teamMembers 
 
         {teamMembers.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1.5">
-              Current Members ({teamMembers.length})
-            </label>
-            <div className="max-h-28 overflow-y-auto border border-gray-800 rounded-xl p-2 bg-gray-800/30 space-y-0.5 scrollbar-thin">
+            <Label className="mb-1.5">Current members ({teamMembers.length})</Label>
+            <div className="max-h-28 space-y-0.5 overflow-y-auto rounded-md border border-border bg-surface p-2 scrollbar-thin">
               {teamMembers.map(member => (
-                <div key={member._id} className="flex items-center gap-2 px-2 py-1.5 text-sm">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-[10px] font-semibold text-white flex-shrink-0">
-                    {member.name?.charAt(0)?.toUpperCase()}
-                  </div>
-                  <span className="text-gray-300 truncate">{member.name}</span>
-                  <span className="text-gray-600 text-xs ml-auto">{member.role}</span>
+                <div key={member._id} className="flex items-center gap-2 px-2 py-1.5">
+                  <UserAvatar name={member.name} size="sm" />
+                  <span className="truncate text-small text-foreground">{member.name}</span>
+                  <Badge variant="outline" className="ml-auto">{member.role}</Badge>
                 </div>
               ))}
             </div>
@@ -160,27 +166,20 @@ const AddUserToTeamModal = ({ isOpen, onClose, team, allUsers = [], teamMembers 
         )}
 
         <div className="flex justify-end gap-2 pt-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={onClose}
-            className="px-4 py-2.5 border border-gray-800 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-gray-300 transition-colors text-sm"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
+            loading={isMutating}
             disabled={isMutating || (mode === 'existing' && availableUsers.length === 0)}
-            className="px-5 py-2.5 bg-white text-gray-900 font-medium rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
           >
-            {isMutating ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin" />
-                <span>Adding...</span>
-              </>
-            ) : (
-              <span>Add User</span>
-            )}
-          </button>
+            {isMutating ? 'Adding…' : 'Add user'}
+          </Button>
         </div>
       </form>
     </Modal>

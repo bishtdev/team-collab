@@ -1,17 +1,21 @@
-// src/components/Draggable.jsx
 import { useDraggable } from '@dnd-kit/core';
 
-export const Draggable = ({ id, children }) => {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
+import { cn } from '@/lib/utils';
 
-  const style = {
-    transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-    opacity: isDragging ? 0.5 : 1,
-    cursor: 'grab',
-  };
+export const Draggable = ({ id, children, className }) => {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
 
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={cn(
+        'touch-none',
+        isDragging ? 'opacity-40' : 'cursor-grab active:cursor-grabbing',
+        className
+      )}
+    >
       {children}
     </div>
   );

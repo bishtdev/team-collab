@@ -20,6 +20,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
+  sendPasswordResetEmail,
   signOut
 } from 'firebase/auth';
 import { auth } from '../firebaseConfig.js';
@@ -105,6 +106,9 @@ export const AuthProvider = ({ children }) => {
   // Logout
   const logout = () => signOut(auth);
 
+  // Password reset — Firebase sends the reset email directly
+  const resetPassword = (email) => sendPasswordResetEmail(auth, email);
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -113,7 +117,8 @@ export const AuthProvider = ({ children }) => {
       login,
       logout,
       loading,
-      refreshUser
+      refreshUser,
+      resetPassword
     }}>
       {children}
     </AuthContext.Provider>

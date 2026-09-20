@@ -1,0 +1,140 @@
+/*
+ * Kiln — semantic tokens.
+ * This is the contract. Components consume these jobs, never raw ramps.
+ * Light theme lives in :root, dark in .dark (default theme, set on <html>).
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Canvas */
+  --background: var(--oat-100);
+  --surface: #fefcf7;
+  --surface-raised: #ffffff;
+
+  /* Lines and wells */
+  --border: #e2d9c6;
+  --input: #ebe3d1;
+  --ring: var(--moss-600);
+
+  /* Text */
+  --foreground: #221d14;
+  --muted-foreground: #6c6352;
+  --faint: #8c8371;
+
+  /* Brand and interaction */
+  --primary: #5a7032;
+  --primary-foreground: #f6f1e4;
+  --secondary: #efe7d6;
+  --secondary-foreground: #221d14;
+  --muted: #efe7d6;
+  --accent: #eae0cc;
+  --accent-foreground: #221d14;
+
+  /* Feedback */
+  --destructive: var(--rust-600);
+  --destructive-foreground: #fdf6f2;
+  --highlight: #8a6a1b;
+  --highlight-foreground: #fdf6f2;
+  --success: #4e6b2e;
+  --success-foreground: #f6f1e4;
+  --warning: #96630f;
+  --warning-foreground: #fdf6f2;
+  --info: var(--teal-600);
+  --info-foreground: #f6f1e4;
+
+  /* Work status */
+  --status-todo: var(--umber-500);
+  --status-progress: #96630f;
+  --status-done: #4e6b2e;
+
+  /* Elevation — warm-tinted, never neutral gray */
+  --elevation-card:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 1px 2px rgba(59, 48, 30, 0.05),
+    0 10px 28px -18px rgba(59, 48, 30, 0.28);
+  --elevation-pop:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 2px 6px rgba(59, 48, 30, 0.08),
+    0 16px 40px -20px rgba(59, 48, 30, 0.35);
+  --elevation-overlay:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 8px 20px rgba(42, 36, 26, 0.1),
+    0 32px 64px -24px rgba(42, 36, 26, 0.4);
+  --edge-highlight: rgba(255, 255, 255, 0.85);
+  --overlay: rgba(42, 36, 26, 0.45);
+
+  /* Data */
+  --chart-1: var(--moss-600);
+  --chart-2: var(--gilt-600);
+  --chart-3: var(--teal-600);
+  --chart-4: var(--rust-600);
+  --chart-5: var(--umber-500);
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Canvas */
+  --background: #15120d;
+  --surface: #1d1913;
+  --surface-raised: #262119;
+
+  /* Lines and wells */
+  --border: #332c22;
+  --input: #2b251c;
+  --ring: var(--moss-400);
+
+  /* Text */
+  --foreground: #ede6d6;
+  --muted-foreground: #a79e8d;
+  --faint: #7b7263;
+
+  /* Brand and interaction */
+  --primary: #afc381;
+  --primary-foreground: #14170d;
+  --secondary: #262119;
+  --secondary-foreground: #ede6d6;
+  --muted: #221e17;
+  --accent: #2a251c;
+  --accent-foreground: #ede6d6;
+
+  /* Feedback */
+  --destructive: var(--rust-400);
+  --destructive-foreground: #2a100c;
+  --highlight: var(--gilt-400);
+  --highlight-foreground: #241b07;
+  --success: #9cb86f;
+  --success-foreground: #14170d;
+  --warning: #dfa14a;
+  --warning-foreground: #241b07;
+  --info: var(--teal-400);
+  --info-foreground: #0f1c20;
+
+  /* Work status */
+  --status-todo: var(--umber-400);
+  --status-progress: var(--gilt-400);
+  --status-done: #9cb86f;
+
+  /* Elevation — warm-tinted, fired edge included */
+  --elevation-card:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 12px 32px -16px rgba(0, 0, 0, 0.6);
+  --elevation-pop:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 4px 10px rgba(0, 0, 0, 0.45),
+    0 20px 48px -20px rgba(0, 0, 0, 0.7);
+  --elevation-overlay:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 24px 64px -16px rgba(0, 0, 0, 0.75);
+  --edge-highlight: rgba(255, 255, 255, 0.05);
+  --overlay: rgba(10, 8, 5, 0.65);
+
+  /* Data */
+  --chart-1: var(--moss-300);
+  --chart-2: var(--gilt-400);
+  --chart-3: var(--teal-400);
+  --chart-4: var(--rust-400);
+  --chart-5: var(--umber-300);
+}

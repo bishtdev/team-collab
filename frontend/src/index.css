@@ -1,4 +1,6 @@
-@import "tailwindcss";
+/* Kiln — animation and scrollbar helpers.
+   Tailwind itself is imported by App.css; this file only carries helpers
+   still used by existing components. */
 
 @keyframes fadeIn {
   from {

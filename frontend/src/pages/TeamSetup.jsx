@@ -4,10 +4,38 @@ import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { useNavigate } from 'react-router-dom';
 import { fetchTeams, fetchAllUsers, fetchTeamMembers, setActiveTeam, clearError } from '../features/teams/teamsSlice';
+import * as teamService from '../services/teamService';
 import CreateTeamModal from '../components/modals/CreateTeamModal';
 import AddUserToTeamModal from '../components/modals/AddUserToTeamModal';
 import ChangeRoleModal from '../components/modals/ChangeRoleModal';
-import { FiUsers, FiPlus, FiArrowRight, FiBriefcase, FiUserPlus, FiSettings } from 'react-icons/fi';
+import { ArrowRight, Briefcase, Plus, Settings, UserPlus } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/product/EmptyState';
+import { PageHeader } from '@/components/product/PageHeader';
+import { UserAvatar } from '@/components/product/UserAvatar';
+import { cn } from '@/lib/utils';
+
+const memberName = (member) => {
+  const user = member?.userId;
+  if (user && typeof user === 'object') {
+    return user.name || user.email || 'Unknown member';
+  }
+  return member?.name || 'Unknown member';
+};
+
+const memberKey = (member, index) => {
+  const user = member?.userId;
+  if (user && typeof user === 'object') {
+    return user._id || user.email || index;
+  }
+  if (typeof user === 'string') return user;
+  return member?._id || index;
+};
 
 const TeamSetup = () => {
   const dispatch = useDispatch();
@@ -20,6 +48,34 @@ const TeamSetup = () => {
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [activeMembers, setActiveMembers] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersRefresh, setMembersRefresh] = useState(0);
+
+  const activeTeam = teams.find((t) => t._id === user?.teamId) || teams[0] || null;
+
+  useEffect(() => {
+    if (!activeTeam?._id) {
+      setActiveMembers([]);
+      return undefined;
+    }
+    let cancelled = false;
+    setMembersLoading(true);
+    teamService
+      .fetchTeamMembers(activeTeam._id)
+      .then((res) => {
+        if (!cancelled) setActiveMembers(res.data || []);
+      })
+      .catch(() => {
+        if (!cancelled) setActiveMembers([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMembersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTeam?._id, membersRefresh]);
 
   useEffect(() => {
     if (user) {
@@ -43,15 +99,23 @@ const TeamSetup = () => {
   };
 
   const handleSetActive = async (teamId) => {
-    await dispatch(setActiveTeam(teamId)).unwrap();
-    await dispatch(fetchTeams());
-    await refreshUser();
-    navigate('/projects');
+    try {
+      await dispatch(setActiveTeam(teamId)).unwrap();
+      await dispatch(fetchTeams());
+      await refreshUser();
+      navigate('/projects');
+    } catch (err) {
+      toast.error('Could not switch teams', {
+        description:
+          typeof err === 'string' ? err : 'Check your connection and try again.',
+      });
+    }
   };
 
   const handleCreateSuccess = () => {
     dispatch(fetchTeams());
     dispatch(fetchAllUsers());
+    setMembersRefresh((v) => v + 1);
   };
 
   const handleAddUserSuccess = () => {
@@ -60,140 +124,184 @@ const TeamSetup = () => {
     }
     dispatch(fetchTeams());
     dispatch(fetchAllUsers());
+    setMembersRefresh((v) => v + 1);
   };
 
   if (!user) {
     return (
-      <div className="flex justify-center items-center h-full">
-        <div className="w-8 h-8 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+      <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
+        <Skeleton className="h-10 w-40" />
+        <div className="grid gap-5 md:grid-cols-2">
+          {[0, 1].map((i) => (
+            <Skeleton key={i} className="h-44 w-full rounded-lg" />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-gray-800/60 rounded-xl border border-gray-800/60">
-            <FiUsers className="text-xl text-gray-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white">Teams</h1>
-            <p className="text-sm text-gray-500 mt-0.5">{teams.length} team{teams.length !== 1 ? 's' : ''}</p>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white text-gray-900 hover:bg-gray-100 rounded-xl font-medium transition-all text-sm shadow-lg shadow-white/5"
-        >
-          <FiPlus className="w-4 h-4" />
-          <span className="hidden sm:inline">New Team</span>
-        </button>
-      </div>
+    <div className="mx-auto max-w-8xl space-y-6 p-4 md:p-6">
+      <PageHeader
+        title="Teams"
+        description={`${teams.length} team${teams.length !== 1 ? 's' : ''}`}
+      >
+        <Button onClick={() => setShowCreateModal(true)}>
+          <Plus className="size-4" strokeWidth={1.75} />
+          <span className="hidden sm:inline">New team</span>
+        </Button>
+      </PageHeader>
 
       {error && (
-        <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-small text-destructive">
           {error}
         </div>
       )}
 
+      {/* {activeTeam && !isLoading && (
+        <Card className="gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-h3 font-semibold text-foreground">
+              Members
+              <span className="ml-2 text-small font-normal text-muted-foreground">
+                {activeTeam.name}
+              </span>
+            </h2>
+            <span className="text-micro text-faint tabular-nums">
+              {activeMembers.length} member{activeMembers.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          {membersLoading ? (
+            <div className="space-y-3 py-1">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="size-8 rounded-full" />
+                  <Skeleton className="h-4 w-40" />
+                </div>
+              ))}
+            </div>
+          ) : activeMembers.length === 0 ? (
+            <p className="text-small text-muted-foreground">
+              No members yet. Add the first person.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {activeMembers.map((member) => (
+                <li key={member._id} className="flex items-center gap-3 py-3">
+                  <UserAvatar name={member.name} size="md" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-small font-medium text-foreground">
+                      {member.name}
+                      {member._id === user?._id && (
+                        <span className="ml-2 text-micro text-faint">You</span>
+                      )}
+                    </p>
+                    <p className="truncate text-micro text-muted-foreground">
+                      {member.email}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={
+                      member.role === 'ADMIN'
+                        ? 'gilt'
+                        : member.role === 'MANAGER'
+                          ? 'teal'
+                          : 'outline'
+                    }
+                    className="capitalize"
+                  >
+                    {member.role?.toLowerCase()}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )} */}
+
       {isLoading ? (
-        <div className="flex justify-center py-20">
-          <div className="w-8 h-8 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          {[0, 1].map((i) => (
+            <Card key={i} className="gap-4">
+              <Skeleton className="h-5 w-1/2" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-8 w-2/3" />
+            </Card>
+          ))}
         </div>
       ) : teams.length === 0 ? (
-        <div className="text-center py-20 bg-gray-900/50 rounded-2xl border border-gray-800/50">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-800/50 flex items-center justify-center">
-            <FiBriefcase className="text-2xl text-gray-600" />
-          </div>
-          <h3 className="text-lg font-medium text-gray-300">No teams yet</h3>
-          <p className="text-gray-600 mt-2 text-sm">Create your first team to start collaborating</p>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="mt-6 px-5 py-2.5 bg-white text-gray-900 hover:bg-gray-100 rounded-xl font-medium transition-all text-sm"
-          >
-            Create Your First Team
-          </button>
-        </div>
+        <EmptyState
+          icon={Briefcase}
+          title="No teams yet"
+          description="Create your first team to start collaborating."
+        >
+          <Button onClick={() => setShowCreateModal(true)}>Create your first team</Button>
+        </EmptyState>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           {teams.map((t) => (
-            <div
+            <Card
               key={t._id}
-              className={`p-5 bg-gray-900/60 rounded-2xl border transition-all duration-200 ${
+              className={cn(
+                'gap-4 p-5 transition-colors duration-200 ease-kiln',
                 user?.teamId === t._id
-                  ? 'border-white/20 ring-1 ring-white/10'
-                  : 'border-gray-800/60 hover:border-gray-700/60'
-              }`}
+                  ? 'border-primary/40 ring-1 ring-primary/20'
+                  : 'hover:border-primary/40'
+              )}
             >
-              <div className="flex justify-between items-start mb-3">
-                <div>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-white">{t.name}</h3>
+                    <h3 className="truncate text-h3 font-semibold text-foreground">{t.name}</h3>
                     {user?.teamId === t._id && (
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/10 text-white border border-white/20">
-                        Active
-                      </span>
+                      <Badge variant="moss">Active</Badge>
                     )}
                   </div>
-                  <p className="text-gray-500 text-sm mt-1">{t.description || 'No description'}</p>
+                  <p className="mt-1 text-small text-muted-foreground">{t.description || 'No description'}</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 mb-4">
-                <div className="flex -space-x-2">
-                  {(t.members || []).slice(0, 5).map((m, i) => (
-                    <div
-                      key={m._id || i}
-                      className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-[10px] font-semibold text-white border-2 border-gray-900"
-                      title={m.name}
-                    >
-                      {m.userId.name?.charAt(0)?.toUpperCase() || '?'}
-                    </div>
+              <div className="flex items-center gap-2">
+                <div className="flex -space-x-1.5">
+                  {(t.members || []).filter(Boolean).slice(0, 5).map((m, i) => (
+                    <UserAvatar
+                      key={memberKey(m, i)}
+                      name={memberName(m)}
+                      size="sm"
+                      className="ring-2 ring-surface"
+                    />
                   ))}
                 </div>
-                <span className="text-xs text-gray-600">
+                <span className="text-micro text-muted-foreground tabular-nums">
                   {t.members ? t.members.length : 0} member{(t.members?.length || 0) !== 1 ? 's' : ''}
                 </span>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 {canAssignRole && (
-                  <button
-                    onClick={() => openAddUserModal(t)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-gray-800/80 hover:bg-gray-800 text-gray-400 hover:text-white rounded-xl transition-colors text-xs font-medium"
-                  >
-                    <FiUserPlus className="w-3.5 h-3.5" />
-                    <span>Add User</span>
-                  </button>
+                  <Button variant="secondary" size="sm" onClick={() => openAddUserModal(t)}>
+                    <UserPlus className="size-4" strokeWidth={1.75} />
+                    <span>Add user</span>
+                  </Button>
                 )}
                 {canAssignRole && (
-                  <button
-                    onClick={() => openRoleModal(t)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-gray-800/80 hover:bg-gray-800 text-gray-400 hover:text-white rounded-xl transition-colors text-xs font-medium"
-                  >
-                    <FiSettings className="w-3.5 h-3.5" />
+                  <Button variant="secondary" size="sm" onClick={() => openRoleModal(t)}>
+                    <Settings className="size-4" strokeWidth={1.75} />
                     <span>Manage</span>
-                  </button>
+                  </Button>
                 )}
                 {user?.teamId !== t._id && (
-                  <button
-                    onClick={() => handleSetActive(t._id)}
-                    disabled={isMutating}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-white text-gray-900 hover:bg-gray-100 rounded-xl transition-colors text-xs font-medium disabled:opacity-50"
-                  >
-                    <span>Set Active</span>
-                    <FiArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  <Button size="sm" onClick={() => handleSetActive(t._id)} disabled={isMutating}>
+                    <span>Set active</span>
+                    <ArrowRight className="size-4" strokeWidth={1.75} />
+                  </Button>
                 )}
-                <button
-                  onClick={() => navigate('/projects')}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-gray-800/80 hover:bg-gray-800 text-gray-400 hover:text-white rounded-xl transition-colors text-xs font-medium"
-                >
-                  View Projects
-                </button>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/projects')}>
+                  View projects
+                </Button>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
@@ -223,6 +331,7 @@ const TeamSetup = () => {
             dispatch(fetchTeamMembers(selectedTeam._id));
             dispatch(fetchTeams());
           }
+          setMembersRefresh((v) => v + 1);
         }}
       />
     </div>
