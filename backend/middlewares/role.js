@@ -1,8 +1,11 @@
 // middlewares/role.js
 // Team-scoped authorization middleware.
-// Derives the user's role from their membership in their active team.
-// This replaces the old global-role check with per-team role resolution.
+// members[] is the SOLE source of truth (see roleRework.md).
+// - No more adminId priority (adminId is legacy/compat only).
+// - OWNER bypass: email in ADMIN_EMAILS always passes (prevents lockout in migration).
+// - User.role cache is NEVER read here (it's UX-only now).
 const Team = require('../models/Team');
+const { isOwnerEmail } = require('../config/flags');
 
 const checkRole = (roles) => async (req, res, next) => {
   try {
@@ -11,25 +14,31 @@ const checkRole = (roles) => async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied. No active team.' });
     }
 
+    // Owner bypass first: platform owner passes any role check.
+    // Why: owners must never be locked out by a stale members[] entry.
+    if (req.user.email && isOwnerEmail(req.user.email)) {
+      req.userRole = 'OWNER';
+      // OWNER is treated as superset: allow even if caller asked for ADMIN/MANAGER.
+      return next();
+    }
+
     // Look up the user's membership in their active team
-    const team = await Team.findById(req.user.teamId).select('adminId members').lean();
+    const team = await Team.findById(req.user.teamId).select('members').lean();
     if (!team) {
       return res.status(403).json({ error: 'Access denied. Team not found.' });
     }
 
-    // Determine role: adminId takes priority, then check members[] subdoc
-    let userRole;
-    if (team.adminId && team.adminId.toString() === req.user._id.toString()) {
-      userRole = 'ADMIN';
-    } else {
-      const membership = (team.members || []).find(m => {
-        const mid = m.userId ? m.userId.toString() : m.toString();
-        return mid === req.user._id.toString();
-      });
-      userRole = membership ? (membership.role || 'MEMBER') : null;
-    }
+    // Single source: members[].role only.
+    const membership = (team.members || []).find(m => {
+      const mid = m.userId ? m.userId.toString() : m.toString();
+      return mid === req.user._id.toString();
+    });
+    const userRole = membership ? (membership.role || 'MEMBER') : null;
 
-    if (!userRole || !roles.includes(userRole)) {
+    // OWNER is superset of every role (new workspaces store creator as OWNER
+    // in Team.members). Without this, org owners get 403 on project/task routes
+    // that list only ADMIN/MANAGER.
+    if (!userRole || !(roles.includes(userRole) || userRole === 'OWNER')) {
       return res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
     }
 

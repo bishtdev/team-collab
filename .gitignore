@@ -3,8 +3,11 @@
 /backend/config/firebaseServiceAccount.json
 /backend/node_modules
 /frontend/node_modules
+.opencode/
+.commandcode/
 Plan.md
 taskcomment&activitylog.md
 ARCHITECTURE.md
 .kilo/plans/subtask.md
 .kilo/plans
+*.md

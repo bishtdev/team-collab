@@ -1,9 +1,29 @@
 // controllers/projectController.js
+// Org-aware: projects carry orgId (denormalized from Team). Reads scoped by
+// orgId (preferred) or legacy teamId. Cross-org reads return 404 (not 403)
+// to avoid confirming existence of other companies' projects.
 const Project = require('../models/Project');
+const Team = require('../models/Team');
 const User = require('../models/User');
+const Org = require('../models/Org');
+const { getRoleInOrg } = require('../middlewares/orgScope');
+const { isOwnerEmail } = require('../config/flags');
 
 exports.getProjects = async (req, res) => {
   try {
+    // Preferred: ?orgId=xxx&teamId=yyy (both scoped). Legacy: active teamId.
+    const { orgId, teamId } = req.query;
+    if (orgId) {
+      const org = await Org.findById(orgId).select('members').lean();
+      if (!org) return res.status(404).json({ error: 'Workspace not found' });
+      if (!isOwnerEmail(req.user.email) && !getRoleInOrg(org, req.user._id)) {
+        return res.status(403).json({ error: 'Not a member of this workspace' });
+      }
+      const filter = { orgId };
+      if (teamId) filter.teamId = teamId;
+      const projects = await Project.find(filter).populate('assignedUsers', 'name email');
+      return res.json(projects);
+    }
     const projects = await Project.find({ teamId: req.user.teamId })
       .populate('assignedUsers', 'name email'); // populate assigned users
     res.json(projects);
@@ -14,11 +34,24 @@ exports.getProjects = async (req, res) => {
 
 exports.createProject = async (req, res) => {
   try {
-    const { name, description, assignedUsers } = req.body;
-
-    if (!req.user.teamId) {
+    const { name, description, assignedUsers, teamId: bodyTeamId, orgId: bodyOrgId } = req.body;
+    // Resolve team: explicit teamId preferred, else active team (legacy).
+    const teamId = bodyTeamId || req.user.teamId;
+    if (!teamId) {
       console.log('CreateProject failed: user has no teamId', req.user);
       return res.status(400).json({ error: 'User is not assigned to any team' });
+    }
+    // Resolve org from Team (truth) so project can't be planted in another org.
+    const team = await Team.findById(teamId).select('orgId').lean();
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    // A client-supplied orgId must match the team's real workspace — never trust a pair.
+    if (bodyOrgId && String(bodyOrgId) !== String(team.orgId)) {
+      return res.status(400).json({ error: 'Project workspace does not match the team' });
+    }
+    const orgId = team.orgId;
+    const org = await Org.findById(orgId).select('members').lean();
+    if (!isOwnerEmail(req.user.email) && !getRoleInOrg(org, req.user._id)) {
+      return res.status(403).json({ error: 'Not a member of this workspace' });
     }
 
     // Optional: filter assignedUsers so only users from the same team are assigned
@@ -26,7 +59,7 @@ exports.createProject = async (req, res) => {
     if (Array.isArray(assignedUsers) && assignedUsers.length > 0) {
       const validMembers = await User.find({
         _id: { $in: assignedUsers },
-        teamId: req.user.teamId
+        teamId
       }).select('_id');
       finalAssigned = validMembers.map(u => u._id);
     }
@@ -34,7 +67,8 @@ exports.createProject = async (req, res) => {
     const newProject = await Project.create({
       name,
       description,
-      teamId: req.user.teamId,
+      teamId,
+      orgId,
       assignedUsers: finalAssigned
     });
 

@@ -3,10 +3,9 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { useNavigate } from 'react-router-dom';
-import { fetchTeams, fetchAllUsers, fetchTeamMembers, setActiveTeam, clearError } from '../features/teams/teamsSlice';
-import * as teamService from '../services/teamService';
+import { fetchTeams, fetchTeamMembers, setActiveTeam, clearError } from '../features/teams/teamsSlice';
 import CreateTeamModal from '../components/modals/CreateTeamModal';
-import AddUserToTeamModal from '../components/modals/AddUserToTeamModal';
+import InviteUserModal from '../components/modals/InviteUserModal';
 import ChangeRoleModal from '../components/modals/ChangeRoleModal';
 import { ArrowRight, Briefcase, Plus, Settings, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -40,49 +39,24 @@ const memberKey = (member, index) => {
 const TeamSetup = () => {
   const dispatch = useDispatch();
   const { user, refreshUser } = useAuth();
-  const { canAssignRole } = usePermissions();
+  // canInvite/canAssignRole = OWNER|ADMIN (manage people); canCreateTeam mirrors
+  // the server-side workspace role check.
+  const { canAssignRole, canInvite, canCreateTeam } = usePermissions();
   const navigate = useNavigate();
-  const { items: teams, allUsers, currentMembers, isLoading, isMutating, error } = useSelector(state => state.teams);
+  const { items: teams, currentMembers, isLoading, isMutating, error } = useSelector(state => state.teams);
+  // Active workspace: teams are scoped to it. ProtectedRoute guarantees ≥1 org here.
+  const { items: orgs, activeOrgId } = useSelector(state => state.orgs || { items: [], activeOrgId: null });
+  const resolvedOrgId = activeOrgId || user?.lastActiveOrgId || orgs[0]?._id || null;
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
-  const [activeMembers, setActiveMembers] = useState([]);
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [membersRefresh, setMembersRefresh] = useState(0);
 
-  const activeTeam = teams.find((t) => t._id === user?.teamId) || teams[0] || null;
-
+  // Teams scoped to the active workspace (never the unscoped legacy listing).
   useEffect(() => {
-    if (!activeTeam?._id) {
-      setActiveMembers([]);
-      return undefined;
-    }
-    let cancelled = false;
-    setMembersLoading(true);
-    teamService
-      .fetchTeamMembers(activeTeam._id)
-      .then((res) => {
-        if (!cancelled) setActiveMembers(res.data || []);
-      })
-      .catch(() => {
-        if (!cancelled) setActiveMembers([]);
-      })
-      .finally(() => {
-        if (!cancelled) setMembersLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTeam?._id, membersRefresh]);
-
-  useEffect(() => {
-    if (user) {
-      dispatch(fetchTeams());
-      dispatch(fetchAllUsers());
-    }
-  }, [user, dispatch]);
+    if (user && resolvedOrgId) dispatch(fetchTeams(resolvedOrgId));
+  }, [user, resolvedOrgId, dispatch]);
 
   const openAddUserModal = async (team) => {
     setSelectedTeam(team);
@@ -101,7 +75,7 @@ const TeamSetup = () => {
   const handleSetActive = async (teamId) => {
     try {
       await dispatch(setActiveTeam(teamId)).unwrap();
-      await dispatch(fetchTeams());
+      await dispatch(fetchTeams(resolvedOrgId));
       await refreshUser();
       navigate('/projects');
     } catch (err) {
@@ -113,18 +87,14 @@ const TeamSetup = () => {
   };
 
   const handleCreateSuccess = () => {
-    dispatch(fetchTeams());
-    dispatch(fetchAllUsers());
-    setMembersRefresh((v) => v + 1);
+    dispatch(fetchTeams(resolvedOrgId));
   };
 
   const handleAddUserSuccess = () => {
     if (selectedTeam) {
       dispatch(fetchTeamMembers(selectedTeam._id));
     }
-    dispatch(fetchTeams());
-    dispatch(fetchAllUsers());
-    setMembersRefresh((v) => v + 1);
+    dispatch(fetchTeams(resolvedOrgId));
   };
 
   if (!user) {
@@ -146,10 +116,13 @@ const TeamSetup = () => {
         title="Teams"
         description={`${teams.length} team${teams.length !== 1 ? 's' : ''}`}
       >
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus className="size-4" strokeWidth={1.75} />
-          <span className="hidden sm:inline">New team</span>
-        </Button>
+        {/* Server enforces the workspace role check; the UI just hides the action */}
+        {canCreateTeam && (
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="size-4" strokeWidth={1.75} />
+            <span className="hidden sm:inline">New team</span>
+          </Button>
+        )}
       </PageHeader>
 
       {error && (
@@ -157,68 +130,6 @@ const TeamSetup = () => {
           {error}
         </div>
       )}
-
-      {/* {activeTeam && !isLoading && (
-        <Card className="gap-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-h3 font-semibold text-foreground">
-              Members
-              <span className="ml-2 text-small font-normal text-muted-foreground">
-                {activeTeam.name}
-              </span>
-            </h2>
-            <span className="text-micro text-faint tabular-nums">
-              {activeMembers.length} member{activeMembers.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-
-          {membersLoading ? (
-            <div className="space-y-3 py-1">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <Skeleton className="size-8 rounded-full" />
-                  <Skeleton className="h-4 w-40" />
-                </div>
-              ))}
-            </div>
-          ) : activeMembers.length === 0 ? (
-            <p className="text-small text-muted-foreground">
-              No members yet. Add the first person.
-            </p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {activeMembers.map((member) => (
-                <li key={member._id} className="flex items-center gap-3 py-3">
-                  <UserAvatar name={member.name} size="md" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-small font-medium text-foreground">
-                      {member.name}
-                      {member._id === user?._id && (
-                        <span className="ml-2 text-micro text-faint">You</span>
-                      )}
-                    </p>
-                    <p className="truncate text-micro text-muted-foreground">
-                      {member.email}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={
-                      member.role === 'ADMIN'
-                        ? 'gilt'
-                        : member.role === 'MANAGER'
-                          ? 'teal'
-                          : 'outline'
-                    }
-                    className="capitalize"
-                  >
-                    {member.role?.toLowerCase()}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      )} */}
 
       {isLoading ? (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -279,10 +190,11 @@ const TeamSetup = () => {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {canAssignRole && (
+                {/* Invite-only: MANAGERs no longer see invite (they manage work, not people) */}
+                {canInvite && (
                   <Button variant="secondary" size="sm" onClick={() => openAddUserModal(t)}>
                     <UserPlus className="size-4" strokeWidth={1.75} />
-                    <span>Add user</span>
+                    <span>Invite</span>
                   </Button>
                 )}
                 {canAssignRole && (
@@ -312,12 +224,11 @@ const TeamSetup = () => {
         onSuccess={handleCreateSuccess}
       />
 
-      <AddUserToTeamModal
+      {/* Invite modal replaces direct AddUser modal (invite link, 48h, single-use) */}
+      <InviteUserModal
         isOpen={showAddUserModal}
         onClose={() => setShowAddUserModal(false)}
         team={selectedTeam}
-        allUsers={allUsers}
-        teamMembers={currentMembers}
         onSuccess={handleAddUserSuccess}
       />
 
@@ -329,9 +240,8 @@ const TeamSetup = () => {
         onSuccess={() => {
           if (selectedTeam) {
             dispatch(fetchTeamMembers(selectedTeam._id));
-            dispatch(fetchTeams());
+            dispatch(fetchTeams(resolvedOrgId));
           }
-          setMembersRefresh((v) => v + 1);
         }}
       />
     </div>

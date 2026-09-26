@@ -1,8 +1,11 @@
 // server.js
+// Load env FIRST: config/flags.js reads process.env at import time, so a later
+// dotenv.config() would leave .env values (ADMIN_EMAILS, flags) unapplied.
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
 const admin = require('firebase-admin');
 const http = require('http');
 const socketIO = require('socket.io');
@@ -10,6 +13,8 @@ const rateLimit = require('express-rate-limit');
 
 // Route imports
 const authRoutes = require('./routes/auth');
+const orgRoutes = require('./routes/orgRoutes'); // Org rework: multi-company workspaces (self-serve)
+const inviteRoutes = require('./routes/inviteRoutes'); // Role rework: invite lifecycle
 const projectRoutes = require('./routes/projectRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const messageRoutes = require('./routes/messageRoutes');
@@ -27,12 +32,11 @@ const User = require('./models/User');
 
 // Service imports
 const socketEmitter = require('./services/socketEmitter');
+const { isOwnerEmail } = require('./config/flags');
 
 // Middleware imports
 const verifyFirebaseToken = require('./middlewares/verifyFirebaseToken');
 const authenticate = require('./middlewares/auth');
-
-dotenv.config();
 
 const app = express();
 
@@ -76,9 +80,12 @@ app.use(express.json());
 // - General limiter: 100 requests per 15 minutes for all API routes
 // - Auth limiter: stricter limit on auth endpoints (login/signup)
 // ---------------------------------------------------------------------------
+// Rate limits are in-memory per process (restart clears them).
+// Dev needs headroom: signup does 2x sync (auth-change + explicit) + hot-reload
+// re-syncs, so 30/15min trips fast. Production can tighten via env.
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minute window
-  max: 200, // max 200 requests per window per IP
+  windowMs: 1 * 60 * 1000, // 15 minute window
+  max: parseInt(process.env.RATE_GENERAL_MAX || '5000', 10),
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message: { error: 'Too many requests, please try again later.' }
@@ -86,7 +93,9 @@ const generalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30, // Stricter limit for auth endpoints
+  max: parseInt(process.env.RATE_AUTH_MAX || '1000', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { error: 'Too many authentication attempts, please try again later.' }
 });
 
@@ -167,6 +176,8 @@ app.get('/', (req, res) => {
 // 2. authenticate: Looks up the user in our MongoDB by email from the decoded token
 // ---------------------------------------------------------------------------
 app.use('/api/auth', authRoutes); // Auth routes handle their own Firebase verification
+app.use('/api/orgs', orgRoutes); // Org routes handle their own auth (open create = Door 1, member-only reads)
+app.use('/api/invites', inviteRoutes); // Invite routes handle their own auth (public validate + authed create)
 app.use('/api/projects', verifyFirebaseToken, authenticate, projectRoutes);
 app.use('/api/tasks', verifyFirebaseToken, authenticate, taskRoutes);
 app.use('/api/tasks', verifyFirebaseToken, authenticate, commentRoutes);
@@ -228,6 +239,22 @@ io.use(async (socket, next) => {
   }
 });
 
+// A socket user may join/send to a team when they belong to that team's workspace
+// (Org.members), falling back to Team.members for legacy rows. Break-glass bypasses.
+const isTeamMember = async (user, teamId) => {
+  if (isOwnerEmail(user.email)) return true;
+  const Team = require('./models/Team');
+  const Org = require('./models/Org');
+  const { getRoleInOrg } = require('./middlewares/orgScope');
+  const team = await Team.findById(teamId).select('orgId members').lean();
+  if (!team) return false;
+  if (team.orgId) {
+    const org = await Org.findById(team.orgId).select('members').lean();
+    if (getRoleInOrg(org, user._id)) return true;
+  }
+  return (team.members || []).some((m) => String(m.userId || m) === String(user._id));
+};
+
 // ---------------------------------------------------------------------------
 // Socket.io Event Handlers
 // Handles real-time team chat: joining rooms, sending/receiving messages.
@@ -240,14 +267,18 @@ io.on('connection', (socket) => {
   socket.join(socket.user._id.toString());
 
   // Join a team chat room
-  // Only allow users to join rooms for teams they belong to
-  socket.on('joinTeamRoom', (teamId) => {
-    // Verify the user belongs to this team before joining
-    if (socket.user.teamId && socket.user.teamId.toString() === teamId.toString()) {
-      socket.join(teamId);
-      console.log(`User ${socket.user.name} joined team room: ${teamId}`);
-    } else {
-      console.warn(`User ${socket.user._id} attempted to join unauthorized team: ${teamId}`);
+  // Only allow users to join rooms for teams they belong to (workspace-scoped).
+  socket.on('joinTeamRoom', async (teamId) => {
+    try {
+      const ok = await isTeamMember(socket.user, teamId);
+      if (ok) {
+        socket.join(teamId);
+        console.log(`User ${socket.user.name} joined team room: ${teamId}`);
+      } else {
+        console.warn(`User ${socket.user._id} attempted to join unauthorized team: ${teamId}`);
+      }
+    } catch (e) {
+      console.warn('joinTeamRoom check failed:', e.message);
     }
   });
 
@@ -255,8 +286,8 @@ io.on('connection', (socket) => {
   // The senderId is taken from the authenticated socket.user, NOT from client input
   socket.on('sendMessage', async ({ teamId, content }) => {
     try {
-      // Verify user belongs to the team they're sending to
-      if (socket.user.teamId && socket.user.teamId.toString() !== teamId.toString()) {
+      // Verify user belongs to the team they're sending to (workspace-scoped check).
+      if (!(await isTeamMember(socket.user, teamId))) {
         return socket.emit('error', { message: 'Not authorized to send messages to this team' });
       }
 

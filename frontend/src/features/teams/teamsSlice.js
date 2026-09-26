@@ -2,9 +2,10 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import * as teamService from '../../services/teamService';
 import { extractError } from '../../services/helpers';
 
-export const fetchTeams = createAsyncThunk('teams/fetchAll', async (_, { rejectWithValue }) => {
+// orgId optional: scoped listing (isolation) when provided, legacy global when omitted.
+export const fetchTeams = createAsyncThunk('teams/fetchAll', async (orgId, { rejectWithValue }) => {
   try {
-    const res = await teamService.fetchTeams();
+    const res = await teamService.fetchTeams(orgId || undefined);
     return res.data.teams || [];
   } catch (err) {
     return rejectWithValue(extractError(err));
@@ -38,15 +39,6 @@ export const fetchTeamMembers = createAsyncThunk('teams/fetchMembers', async (te
   }
 });
 
-export const addUserToTeam = createAsyncThunk('teams/addUser', async ({ teamId, data }, { rejectWithValue }) => {
-  try {
-    await teamService.addUserToTeam(teamId, data);
-    return true;
-  } catch (err) {
-    return rejectWithValue(extractError(err));
-  }
-});
-
 export const changeMemberRole = createAsyncThunk('teams/changeRole', async ({ teamId, userId, role }, { rejectWithValue }) => {
   try {
     await teamService.changeMemberRole(teamId, userId, role);
@@ -74,16 +66,31 @@ export const transferOwnership = createAsyncThunk('teams/transferOwnership', asy
   }
 });
 
-export const fetchAllUsers = createAsyncThunk('teams/fetchAllUsers', async (_, { rejectWithValue }) => {
+// Invite thunks (roleRework): admin creates/lists/revokes invites from TeamSetup UI.
+export const createInvite = createAsyncThunk('teams/createInvite', async (data, { rejectWithValue }) => {
   try {
-    const res = await teamService.fetchAllUsers();
-    return res.data.users || [];
+    const res = await teamService.createInvite(data);
+    return res.data; // {invite, inviteLink}
   } catch (err) {
-    const errMsg = extractError(err);
-    if (err.response?.status !== 403) {
-      return rejectWithValue(errMsg);
-    }
-    return [];
+    return rejectWithValue(extractError(err));
+  }
+});
+
+export const fetchInvites = createAsyncThunk('teams/fetchInvites', async (teamId, { rejectWithValue }) => {
+  try {
+    const res = await teamService.listInvites(teamId);
+    return { teamId, invites: res.data.invites || [] };
+  } catch (err) {
+    return rejectWithValue(extractError(err));
+  }
+});
+
+export const revokeInvite = createAsyncThunk('teams/revokeInvite', async (id, { rejectWithValue }) => {
+  try {
+    await teamService.revokeInvite(id);
+    return id;
+  } catch (err) {
+    return rejectWithValue(extractError(err));
   }
 });
 
@@ -91,8 +98,9 @@ const teamsSlice = createSlice({
   name: 'teams',
   initialState: {
     items: [],
-    allUsers: [],
     currentMembers: [],
+    invites: [], // pending/accepted invites for selected team (admin UI)
+    lastInviteLink: null, // copy-link fallback shown after createInvite
     isLoading: false,
     isMutating: false,
     error: null,
@@ -114,10 +122,11 @@ const teamsSlice = createSlice({
       .addCase(setActiveTeam.fulfilled, (state) => { state.isMutating = false; })
       .addCase(setActiveTeam.rejected, (state, action) => { state.isMutating = false; state.error = action.payload; })
       .addCase(fetchTeamMembers.fulfilled, (state, action) => { state.currentMembers = action.payload.members; })
-      .addCase(addUserToTeam.pending, (state) => { state.isMutating = true; state.error = null; })
-      .addCase(addUserToTeam.fulfilled, (state) => { state.isMutating = false; })
-      .addCase(addUserToTeam.rejected, (state, action) => { state.isMutating = false; state.error = action.payload; })
-      .addCase(fetchAllUsers.fulfilled, (state, action) => { state.allUsers = action.payload; });
+      .addCase(createInvite.pending, (state) => { state.isMutating = true; state.error = null; state.lastInviteLink = null; })
+      .addCase(createInvite.fulfilled, (state, action) => { state.isMutating = false; state.lastInviteLink = action.payload.inviteLink || null; })
+      .addCase(createInvite.rejected, (state, action) => { state.isMutating = false; state.error = action.payload; })
+      .addCase(fetchInvites.fulfilled, (state, action) => { state.invites = action.payload.invites; })
+      .addCase(revokeInvite.fulfilled, (state, action) => { state.invites = state.invites.filter((i) => i._id !== action.payload); });
   },
 });
 

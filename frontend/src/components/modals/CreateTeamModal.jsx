@@ -11,6 +11,9 @@ import { createTeam } from '../../features/teams/teamsSlice';
 const CreateTeamModal = ({ isOpen, onClose, onSuccess }) => {
   const dispatch = useDispatch();
   const { isMutating, error } = useSelector(state => state.teams);
+  // Active workspace (org truth). Teams must belong to an org for isolation;
+  // without orgId the team is orphan and your role shows as MEMBER.
+  const { items: orgs, activeOrgId } = useSelector(state => state.orgs || { items: [], activeOrgId: null });
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -32,7 +35,9 @@ const CreateTeamModal = ({ isOpen, onClose, onSuccess }) => {
     }
 
     try {
-      await dispatch(createTeam({ name, description })).unwrap();
+      // Org-aware: attach active workspace so team lands inside your org (isolation).
+      const resolvedOrgId = activeOrgId || orgs[0]?._id || null;
+      await dispatch(createTeam({ name, description, ...(resolvedOrgId ? { orgId: resolvedOrgId } : {}) })).unwrap();
       toast.success('Team created', { description: `${name} is ready.` });
       onSuccess?.();
       onClose();

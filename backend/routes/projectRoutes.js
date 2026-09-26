@@ -27,26 +27,26 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create a project (Admin/Manager)
+// Create a project (Owner/Admin/Manager — OWNER is workspace owner via org bootstrap)
 router.post(
   '/',
-  checkRole(['ADMIN', 'MANAGER']),
+  checkRole(['OWNER', 'ADMIN', 'MANAGER']),
   validate(createProjectSchema),
   controller.createProject
 );
 
-// Update a project (Admin/Manager)
+// Update a project (Owner/Admin/Manager)
 router.put(
   '/:id',
-  checkRole(['ADMIN', 'MANAGER']),
+  checkRole(['OWNER', 'ADMIN', 'MANAGER']),
   validate(createProjectSchema),
   controller.updateProject
 );
 
-// Delete a project (Admin only)
+// Delete a project (Owner/Admin only)
 router.delete(
   '/:id',
-  checkRole(['ADMIN']),
+  checkRole(['OWNER', 'ADMIN']),
   controller.deleteProject
 );
 

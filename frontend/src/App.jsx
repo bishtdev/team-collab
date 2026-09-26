@@ -11,6 +11,8 @@ import Projects from './pages/Projects';
 import ProjectKanban from './pages/ProjectKanban';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import InviteAccept from './pages/InviteAccept';
+import Onboarding from './pages/Onboarding';
 import TeamSetup from './pages/TeamSetup';
 import Styleguide from './pages/Styleguide';
 import NotFound from './pages/NotFound';
@@ -50,6 +52,34 @@ function App() {
                         <Signup />
                       </AuthLayout>
                     </PublicRoute>
+                  }
+                />
+                {/* Invite entry: /invite/:token — deliberately NOT wrapped in
+                    PublicRoute. PublicRoute bounces any signed-in user to
+                    /projects, which would make accepting an invite impossible
+                    for an existing account. InviteAccept handles the signed-in
+                    cases itself (matching email → accept, different → switch). */}
+                <Route
+                  path="/invite/:token"
+                  element={
+                    <AuthLayout>
+                      <InviteAccept />
+                    </AuthLayout>
+                  }
+                />
+
+                {/* Onboarding: Door 1 (create workspace) vs Door 2 (join via token).
+                    No org picker here — workers can't discover other companies.
+                    requireOrg={false}: it exists for users with no workspace and
+                    redirects to /projects as soon as they have one. */}
+                <Route
+                  path="/onboarding"
+                  element={
+                    <ProtectedRoute requireOrg={false}>
+                      <AppLayout>
+                        <Onboarding />
+                      </AppLayout>
+                    </ProtectedRoute>
                   }
                 />
 

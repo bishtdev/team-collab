@@ -30,3 +30,4 @@ dist-ssr
 
 # Firebase configuration
 firebase.js
+.commandcode

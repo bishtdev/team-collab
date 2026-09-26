@@ -6,23 +6,35 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middlewares/auth');
 const Message = require('../models/Message');
+const Team = require('../models/Team');
+const Org = require('../models/Org');
+const { getRoleInOrg } = require('../middlewares/orgScope');
+const { isOwnerEmail } = require('../config/flags');
 
 // All message routes require authentication
 router.use(auth);
 
 // GET /api/messages/:teamId?page=1&limit=50
-// Fetches messages for a team with cursor-based pagination.
-// Messages are sorted by timestamp in descending order (newest first).
-// Query parameters:
-//   - page: Page number (default: 1)
-//   - limit: Messages per page (default: 50, max: 100)
+// Org-aware: caller must be in the team's org (Org.members), not just active team.
+// This fixes cross-org reads + multi-team (active-team equality was too strict/wrong).
 router.get('/:teamId', async (req, res) => {
   try {
     const { teamId } = req.params;
 
-    // SECURITY: only allow reading messages from the user's active team
-    if (!req.user.teamId || req.user.teamId.toString() !== teamId) {
-      return res.status(403).json({ error: 'Access denied. You can only read messages from your active team.' });
+    // SECURITY: membership in the REQUESTED team's org (Team.members fallback for legacy).
+    const team = await Team.findById(teamId).select('orgId members').lean();
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    let allowed = false;
+    if (isOwnerEmail(req.user.email)) allowed = true;
+    if (!allowed && team.orgId) {
+      const org = await Org.findById(team.orgId).select('members').lean();
+      allowed = !!getRoleInOrg(org, req.user._id);
+    }
+    if (!allowed) {
+      allowed = (team.members || []).some((m) => String(m.userId || m) === String(req.user._id));
+    }
+    if (!allowed) {
+      return res.status(403).json({ error: 'Access denied. You are not a member of this workspace.' });
     }
 
     // Parse pagination parameters with defaults and bounds

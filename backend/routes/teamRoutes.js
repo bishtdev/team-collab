@@ -36,9 +36,6 @@ router.patch('/select', controller.setActiveTeam);
 // Team Member Management
 // ---------------------------------------------------------------------------
 
-// POST /api/teams/:teamId/add-user - Add a user to a team
-router.post('/:teamId/add-user', controller.addUserToTeam);
-
 // GET /api/teams/:teamId/members - Get all members of a team (requires membership)
 router.get('/:teamId/members', controller.getTeamMembers);
 
@@ -55,7 +52,7 @@ router.post('/:teamId/transfer-ownership', controller.transferOwnership);
 // Admin Endpoints
 // ---------------------------------------------------------------------------
 
-// GET /api/teams/users/all - Get all users in the caller's teams
-router.get('/users/all', checkRole(['ADMIN']), controller.getAllUsers);
+// GET /api/teams/users/all - Get all users in the caller's teams (OWNER bypass built into checkRole)
+router.get('/users/all', checkRole(['OWNER', 'ADMIN']), controller.getAllUsers);
 
 module.exports = router;

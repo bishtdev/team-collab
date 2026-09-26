@@ -1,10 +1,13 @@
 // controllers/teamController.js
 // Team CRUD and membership management.
-// Roles are per-team via embedded members[].role subdocument (Phase 2 model).
+// members[] is the SOLE source of truth for roles (see roleRework.md).
+// Direct user-adding is deprecated — use POST /api/invites instead.
 const Team = require('../models/Team');
 const User = require('../models/User');
 const Activity = require('../models/Activity');
 const socketEmitter = require('../services/socketEmitter');
+const { isOwnerEmail } = require('../config/flags');
+const { setRoleInOrg, removeFromOrg, countOwners } = require('../services/membership');
 
 // Helper: check if a user has at least one of the given roles in a team's members array
 const userHasRoleInTeam = (team, userId, roles) => {
@@ -15,36 +18,54 @@ const userHasRoleInTeam = (team, userId, roles) => {
   });
   if (!membership) return false;
   const memberRole = membership.role || 'MEMBER';
+  // OWNER passes every check (superset of all roles).
+  if (memberRole === 'OWNER') return true;
   return roles.includes(memberRole);
 };
 
-// Helper: check if user is the adminId of the team
+// Helper: check if user is the adminId of the team (legacy pointer, kept for compat)
 const userIsAdminOfTeam = (team, userId) =>
   team.adminId && team.adminId.toString() === userId.toString();
 
+// Helper: OWNER or ADMIN of this team (owner email bypass included).
+// Why: most member-management endpoints share this exact check.
+const callerIsOwnerOrAdmin = (team, caller) => {
+  if (isOwnerEmail(caller.email)) return true;
+  if (userIsAdminOfTeam(team, caller._id)) return true;
+  return userHasRoleInTeam(team, caller._id, ['OWNER', 'ADMIN']);
+};
+
 // POST /api/teams
-// Creates a new team. Creator becomes ADMIN and is added to members[].
+// Every team belongs to a workspace: orgId is required and the caller must be
+// OWNER|ADMIN of THAT org (or platform break-glass). No org-less fallback —
+// org-less teams were the entry point of the cross-org join bypass.
+const Org = require('../models/Org');
+const { getRoleInOrg } = require('../middlewares/orgScope');
 exports.createTeam = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, orgId } = req.body;
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'Team name required' });
+    if (!orgId) return res.status(400).json({ error: 'orgId required' });
 
-    const existingTeam = await Team.findOne({ name, adminId: req.user._id });
-    if (existingTeam) {
-      return res.status(400).json({ error: 'Team with this name already exists for you' });
+    const org = await Org.findById(orgId).select('members').lean();
+    if (!org) return res.status(404).json({ error: 'Workspace not found' });
+
+    const callerIsBreakGlass = isOwnerEmail(req.user.email);
+    const orgRole = getRoleInOrg(org, req.user._id);
+    if (!callerIsBreakGlass && !['OWNER', 'ADMIN'].includes(orgRole)) {
+      return res.status(403).json({ error: 'Only workspace OWNER or ADMIN can create teams' });
     }
 
-    // Create team with creator as admin + first member with ADMIN role
     const team = await Team.create({
-      name,
+      name: String(name).trim(),
       description,
-      adminId: req.user._id,
-      members: [{ userId: req.user._id, role: 'ADMIN' }]
+      orgId,
+      ownerId: req.user._id,
+      members: [{ userId: req.user._id, role: orgRole || 'ADMIN' }],
     });
 
-    // If user has no active team yet, set this as their current team and cache ADMIN role
     if (!req.user.teamId) {
       req.user.teamId = team._id;
-      req.user.role = 'ADMIN';
       await req.user.save();
     }
 
@@ -68,12 +89,24 @@ exports.getMyTeam = async (req, res) => {
   }
 };
 
-// GET /api/teams
-// Lists all teams where the user is an admin OR a member.
-// After Phase 2: uses embedded members[].userId for lookup.
+// GET /api/teams?orgId=xxx
+// Org-scoped: with orgId returns teams in that workspace (caller must be org member).
+// Without orgId, legacy behavior (all teams where caller is admin/member).
 exports.listMyTeams = async (req, res) => {
   try {
-    // Find teams where user is admin or a member
+    const { orgId } = req.query;
+    if (orgId) {
+      // Isolation: verify org membership first (prevents enumerating other orgs' teams).
+      const org = await Org.findById(orgId).select('members').lean();
+      if (!org) return res.status(404).json({ error: 'Workspace not found' });
+      const callerIsBreakGlass = isOwnerEmail(req.user.email);
+      if (!callerIsBreakGlass && !getRoleInOrg(org, req.user._id)) {
+        return res.status(403).json({ error: 'Not a member of this workspace' });
+      }
+      const teams = await Team.find({ orgId }).populate('members.userId', 'name email');
+      return res.json({ teams });
+    }
+    // Legacy: all teams where user is admin or member.
     const teams = await Team.find({
       $or: [
         { adminId: req.user._id },
@@ -143,61 +176,6 @@ exports.setActiveTeam = async (req, res) => {
   }
 };
 
-// POST /api/teams/:teamId/add-user
-// Adds a user to a team. Caller must be ADMIN or MANAGER of the target team.
-// Uses atomic $addToSet to prevent duplicate additions (fixes race condition).
-exports.addUserToTeam = async (req, res) => {
-  try {
-    const { email, name, userId } = req.body;
-    const { teamId } = req.params;
-
-    // Load team to verify caller's ownership/membership
-    const team = await Team.findById(teamId);
-    if (!team) return res.status(404).json({ error: 'Team not found' });
-
-    // SECURITY: caller must belong to this team as ADMIN or MANAGER
-    const callerIsAdmin = userIsAdminOfTeam(team, req.user._id);
-    const callerHasRole = userHasRoleInTeam(team, req.user._id, ['ADMIN', 'MANAGER']);
-    if (!callerIsAdmin && !callerHasRole) {
-      return res.status(403).json({ error: 'You do not have permission to add members to this team' });
-    }
-
-    let user;
-    if (userId) {
-      user = await User.findById(userId);
-      if (!user) return res.status(404).json({ error: 'User not found' });
-    } else if (email) {
-      user = await User.findOne({ email });
-      if (!user) {
-        user = await User.create({ email, name, role: 'MEMBER' });
-      }
-    } else {
-      return res.status(400).json({ error: 'Either userId or email is required' });
-    }
-
-    // Atomic add-to-set: prevents duplicates even with concurrent requests
-    const updatedTeam = await Team.findOneAndUpdate(
-      { _id: teamId, 'members.userId': { $ne: user._id } },
-      { $push: { members: { userId: user._id, role: 'MEMBER' } } },
-      { new: true }
-    );
-
-    if (!updatedTeam) {
-      return res.status(400).json({ error: 'User is already a member of this team' });
-    }
-
-    // Set user's active team if not already set (first-time team join)
-    if (!user.teamId) {
-      user.teamId = teamId;
-      await user.save();
-    }
-
-    res.status(200).json({ message: 'User added to team', user });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to assign user to team', details: err.message });
-  }
-};
-
 // GET /api/teams/:teamId/members
 // Returns all members of a team. Caller must be a member of the team.
 exports.getTeamMembers = async (req, res) => {
@@ -252,7 +230,8 @@ exports.getTeamMembers = async (req, res) => {
 };
 
 // PATCH /api/teams/:teamId/members/:userId/role
-// Changes a member's role. ADMIN only. Emits audit log + socket event.
+// Changes a member's role. Role is org-level, so this updates Org.members and
+// every team in the workspace together (no drift). Emits audit log + socket event.
 exports.changeMemberRole = async (req, res) => {
   try {
     const { teamId, userId } = req.params;
@@ -265,12 +244,19 @@ exports.changeMemberRole = async (req, res) => {
     const team = await Team.findById(teamId);
     if (!team) return res.status(404).json({ error: 'Team not found' });
 
-    // Only ADMIN can change roles
-    if (!userIsAdminOfTeam(team, req.user._id)) {
-      return res.status(403).json({ error: 'Only the team admin can change member roles' });
+    // Only OWNER or ADMIN can change roles (MANAGER removed).
+    if (!callerIsOwnerOrAdmin(team, req.user)) {
+      return res.status(403).json({ error: 'Only OWNER or ADMIN can change roles' });
     }
 
-    // Find the target member in the members array
+    // Only a workspace OWNER (or break-glass) can grant ADMIN.
+    if (role === 'ADMIN' && !isOwnerEmail(req.user.email)) {
+      const org = await Org.findById(team.orgId).select('members').lean();
+      if (getRoleInOrg(org, req.user._id) !== 'OWNER') {
+        return res.status(403).json({ error: 'Only the workspace OWNER can grant ADMIN role' });
+      }
+    }
+
     const memberEntry = team.members.find(m => {
       const mid = m.userId ? m.userId.toString() : m.toString();
       return mid === userId;
@@ -279,9 +265,17 @@ exports.changeMemberRole = async (req, res) => {
       return res.status(404).json({ error: 'User is not a member of this team' });
     }
 
+    // Never demote the last OWNER of the workspace (bus-factor protection).
+    if (role !== 'OWNER' && memberEntry.role === 'OWNER') {
+      const owners = await countOwners(team.orgId);
+      if (owners <= 1 && !isOwnerEmail(req.user.email)) {
+        return res.status(400).json({ error: 'Cannot demote the last OWNER' });
+      }
+    }
+
     const oldRole = memberEntry.role || 'MEMBER';
-    memberEntry.role = role;
-    await team.save();
+    // Single source: update Org.members + every team in the org at once.
+    await setRoleInOrg(team.orgId, userId, role);
 
     // Update the affected user's cached role if this is their active team
     const affectedUser = await User.findById(userId);
@@ -295,7 +289,7 @@ exports.changeMemberRole = async (req, res) => {
       taskId: null,
       actorId: req.user._id,
       action: 'role_changed',
-      details: { teamId, userId, from: oldRole, to: role }
+      details: { teamId, orgId: team.orgId, userId, from: oldRole, to: role }
     });
 
     // Notify the affected user via socket
@@ -312,7 +306,8 @@ exports.changeMemberRole = async (req, res) => {
 };
 
 // DELETE /api/teams/:teamId/members/:userId
-// Removes a member from a team. ADMIN only.
+// Removes a member from a team. OWNER or ADMIN only. Never removes last OWNER.
+// If this was their only team in the workspace, workspace membership is revoked too.
 exports.removeMember = async (req, res) => {
   try {
     const { teamId, userId } = req.params;
@@ -320,9 +315,9 @@ exports.removeMember = async (req, res) => {
     const team = await Team.findById(teamId);
     if (!team) return res.status(404).json({ error: 'Team not found' });
 
-    // Only ADMIN can remove members
-    if (!userIsAdminOfTeam(team, req.user._id)) {
-      return res.status(403).json({ error: 'Only the team admin can remove members' });
+    // Only OWNER or ADMIN can remove members
+    if (!callerIsOwnerOrAdmin(team, req.user)) {
+      return res.status(403).json({ error: 'Only OWNER or ADMIN can remove members' });
     }
 
     // Cannot remove yourself (admin)
@@ -330,27 +325,31 @@ exports.removeMember = async (req, res) => {
       return res.status(400).json({ error: 'Cannot remove yourself. Use transfer-ownership first.' });
     }
 
-    const before = team.members.length;
-    team.members = team.members.filter(m => {
-      const mid = m.userId ? m.userId.toString() : m.toString();
-      return mid !== userId;
-    });
-
-    if (team.members.length === before) {
+    const targetPre = team.members.find((m) => String(m.userId || m) === String(userId));
+    if (!targetPre) {
       return res.status(404).json({ error: 'User is not a member of this team' });
     }
+    // Never remove the last OWNER of the workspace (bus-factor protection).
+    if (targetPre.role === 'OWNER') {
+      const owners = await countOwners(team.orgId);
+      if (owners <= 1) return res.status(400).json({ error: 'Cannot remove the last OWNER' });
+    }
 
-    await team.save();
+    await Team.updateOne({ _id: teamId }, { $pull: { members: { userId } } });
+    // Clear the removed user's active team if it was this team.
+    await User.updateOne({ _id: userId, teamId }, { $set: { teamId: null } });
 
-    // Clear the removed user's active team if it was this team
-    await User.findByIdAndUpdate(userId, { teamId: null });
+    // If they hold no other team in this workspace, revoke workspace membership
+    // too — otherwise a "removed" member keeps org-wide read access.
+    const stillInOrg = await Team.exists({ orgId: team.orgId, 'members.userId': userId });
+    if (!stillInOrg) await removeFromOrg(team.orgId, userId);
 
     // Log removal activity
     await Activity.create({
       taskId: null,
       actorId: req.user._id,
       action: 'member_removed',
-      details: { teamId, userId }
+      details: { teamId, orgId: team.orgId, userId }
     });
 
     socketEmitter.emitToUser(userId, 'user:removed-from-team', { teamId });
@@ -362,7 +361,8 @@ exports.removeMember = async (req, res) => {
 };
 
 // POST /api/teams/:teamId/transfer-ownership
-// Transfers admin ownership to another member. Old admin becomes MANAGER.
+// Transfers workspace ownership to another member. Old owner becomes MANAGER.
+// Updates both Team and Org so the two never disagree.
 exports.transferOwnership = async (req, res) => {
   try {
     const { teamId } = req.params;
@@ -375,53 +375,54 @@ exports.transferOwnership = async (req, res) => {
     const team = await Team.findById(teamId);
     if (!team) return res.status(404).json({ error: 'Team not found' });
 
-    // Only current ADMIN can transfer ownership
-    if (!userIsAdminOfTeam(team, req.user._id)) {
-      return res.status(403).json({ error: 'Only the team admin can transfer ownership' });
+    // Only OWNER or current ADMIN can transfer ownership
+    if (!callerIsOwnerOrAdmin(team, req.user)) {
+      return res.status(403).json({ error: 'Only OWNER or ADMIN can transfer ownership' });
     }
 
-    if (newAdminId === req.user._id.toString()) {
-      return res.status(400).json({ error: 'You are already the admin' });
+    if (String(newAdminId) === String(req.user._id)) {
+      return res.status(400).json({ error: 'You are already the owner' });
     }
 
     // Verify target is a member
     const memberEntry = team.members.find(m => {
       const mid = m.userId ? m.userId.toString() : m.toString();
-      return mid === newAdminId;
+      return mid === String(newAdminId);
     });
     if (!memberEntry) {
       return res.status(404).json({ error: 'Target user is not a member of this team' });
     }
 
-    // Perform transfer: old admin → MANAGER, new admin → ADMIN
-    const oldAdminId = team.adminId;
+    const oldOwnerId = team.ownerId || team.adminId || null;
+
+    // Team pointers
+    team.ownerId = newAdminId;
     team.adminId = newAdminId;
-
-    // Update old admin's role in members to MANAGER
-    const oldAdminMembership = team.members.find(m => {
-      const mid = m.userId ? m.userId.toString() : m.toString();
-      return mid === oldAdminId.toString();
-    });
-    if (oldAdminMembership) oldAdminMembership.role = 'MANAGER';
-
-    // Update new admin's role to ADMIN
-    memberEntry.role = 'ADMIN';
-
     await team.save();
+
+    // Keep workspace ownership in lock-step with the team transfer.
+    await Org.updateOne({ _id: team.orgId }, { $set: { ownerId: newAdminId } });
+    await setRoleInOrg(team.orgId, String(newAdminId), 'OWNER');
+    if (oldOwnerId && String(oldOwnerId) !== String(newAdminId)) {
+      await setRoleInOrg(team.orgId, String(oldOwnerId), 'MANAGER');
+    }
 
     // Log ownership transfer
     await Activity.create({
       taskId: null,
       actorId: req.user._id,
       action: 'ownership_transferred',
-      details: { teamId, from: oldAdminId, to: newAdminId }
+      details: { teamId, orgId: team.orgId, from: oldOwnerId, to: newAdminId }
     });
 
     // Notify both parties
-    socketEmitter.emitToUser(oldAdminId.toString(), 'user:role-updated', { teamId, role: 'MANAGER' });
-    socketEmitter.emitToUser(newAdminId, 'user:role-updated', { teamId, role: 'ADMIN' });
+    if (oldOwnerId) {
+      socketEmitter.emitToUser(String(oldOwnerId), 'user:role-updated', { teamId, role: 'MANAGER' });
+    }
+    socketEmitter.emitToUser(String(newAdminId), 'user:role-updated', { teamId, role: 'OWNER' });
 
-    res.json({ message: 'Ownership transferred', team });
+    const updated = await Team.findById(teamId).populate('members.userId', 'name email');
+    res.json({ message: 'Ownership transferred', team: updated });
   } catch (err) {
     res.status(500).json({ error: 'Failed to transfer ownership', details: err.message });
   }

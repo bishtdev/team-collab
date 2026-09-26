@@ -12,9 +12,12 @@ const verifyFirebaseToken = require('../middlewares/verifyFirebaseToken');
 const User = require('../models/User');
 
 // POST /api/auth/sync
-// Syncs a Firebase user with our local database using atomic upsert.
-// Only `name` is accepted from the client body; role and teamId are
-// server-authoritative and never writable from this endpoint.
+// Multi-org mode: login/signup is ALWAYS allowed (creates User row).
+// Joining a workspace is gated, not login:
+// - Door 1 (create): POST /api/orgs (any authed user becomes OWNER of new org)
+// - Door 2 (join): POST /invites/:token/accept (needs token, email match)
+// Legacy single-workspace INVITE_ONLY gate removed — per-org invites enforce isolation.
+// SECURITY: role/teamId/orgId NEVER accepted from client (server-authoritative).
 router.post('/sync', verifyFirebaseToken, async (req, res) => {
   try {
     const { name } = req.body; // Only name is client-provided

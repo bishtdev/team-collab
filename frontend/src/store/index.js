@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import projectsReducer from '../features/projects/projectsSlice';
 import tasksReducer from '../features/tasks/tasksSlice';
 import teamsReducer from '../features/teams/teamsSlice';
+import orgsReducer from '../features/orgs/orgsSlice';
 import chatReducer from '../features/chat/chatSlice';
 import notificationsReducer from '../features/notifications/notificationsSlice';
 import uiReducer from '../features/ui/uiSlice';
@@ -14,6 +15,7 @@ export const store = configureStore({
     projects: projectsReducer,
     tasks: tasksReducer,
     teams: teamsReducer,
+    orgs: orgsReducer,
     chat: chatReducer,
     notifications: notificationsReducer,
     ui: uiReducer,

@@ -6,7 +6,12 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "echo 'No build step required for Node.js'"
+    "build": "echo 'No build step required for Node.js'",
+    "seed:admin": "node scripts/seed-admin.js",
+    "migrate:roles": "node scripts/migrate-roles-to-members.js",
+    "migrate:orgs": "node scripts/migrate-single-to-orgs.js",
+    "migrate:roles:apply": "node scripts/migrate-roles-to-members.js --apply",
+    "migrate:orgs:apply": "node scripts/migrate-single-to-orgs.js --apply"
   },
   "keywords": [
     "nodejs",

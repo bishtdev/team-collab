@@ -14,7 +14,8 @@
 // 4. Backend creates/updates user in MongoDB and returns user data
 // 5. We store the backend user data in state for the rest of the app
 // 6. Socket.io listener refreshes user on role changes in real time
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { useDispatch } from 'react-redux';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -25,15 +26,22 @@ import {
 } from 'firebase/auth';
 import { auth } from '../firebaseConfig.js';
 import api from '../services/api';
+import { resetOrgs } from '../features/orgs/orgsSlice';
 
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
+  const dispatch = useDispatch();
+  const lastUidRef = useRef(null);
   const [user, setUser] = useState(null); // Backend user data (from MongoDB)
   const [loading, setLoading] = useState(true); // True while checking auth state
   const [firebaseUser, setFirebaseUser] = useState(null); // Firebase auth user
+  // lastSyncError: surfaces INVITE_REQUIRED etc. to Signup/Login UI.
+  // Why: when INVITE_ONLY=true, sync returns 403 for non-invited emails —
+  // frontend needs the code, not just null user, to show "ask admin" copy.
+  const [lastSyncError, setLastSyncError] = useState(null);
 
   // Sync Firebase user with backend. Only sends name; role and teamId are server-authoritative.
   const syncUserWithBackend = useCallback(async (fbUser) => {
@@ -49,9 +57,12 @@ export const AuthProvider = ({ children }) => {
         }
       );
       setUser(res.data);
+      setLastSyncError(null);
       return res.data;
     } catch (err) {
       console.error('Backend sync error:', err);
+      // Preserve invite-gate code for UI (err.response.data.code === 'INVITE_REQUIRED').
+      setLastSyncError(err.response?.data || { error: err.message });
       if (err.code !== 'ERR_NETWORK') {
         setUser(null);
       }
@@ -82,6 +93,17 @@ export const AuthProvider = ({ children }) => {
     }
     return null;
   }, [syncUserWithBackend]);
+
+  // A different account (or sign-out) must not inherit the previous account's
+  // workspaces from Redux. Resetting to 'idle' lets the org loader fetch fresh;
+  // without this, the loader's once-only guard would skip the new user entirely.
+  useEffect(() => {
+    const uid = firebaseUser?.uid || null;
+    if (lastUidRef.current !== uid) {
+      lastUidRef.current = uid;
+      dispatch(resetOrgs());
+    }
+  }, [firebaseUser, dispatch]);
 
   // Signup — role is no longer sent to backend (server-authoritative)
   const signup = async (name, email, password) => {
@@ -118,7 +140,8 @@ export const AuthProvider = ({ children }) => {
       logout,
       loading,
       refreshUser,
-      resetPassword
+      resetPassword,
+      lastSyncError
     }}>
       {children}
     </AuthContext.Provider>

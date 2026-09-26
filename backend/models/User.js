@@ -26,9 +26,15 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Team',
   },
+  // Active workspace pointer (UX only, never authz). Authz reads Org.members.
+  lastActiveOrgId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Org',
+  },
 }, { timestamps: true });
 
 // Database Indexes
 userSchema.index({ teamId: 1 });
+userSchema.index({ lastActiveOrgId: 1 });
 
 module.exports = mongoose.model('User', userSchema);
